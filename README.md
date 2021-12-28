@@ -6,7 +6,6 @@
 - Dec 2021: X-VLM-base achieves new SoTA on retrieval, VQA, NLVR2, RefCOCO+
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
 
----
-We are looking for interns at ByteDance AI-LAB (in Beijing/Shanghai)! If you are interested in working with us on pre-trained language models, please send your resume to 
-zhangxinsong.0320@bytedance.com.
----
+
+## Hiring
+We are looking for interns at ByteDance AI-LAB (in Beijing/Shanghai)! If you are interested in working with us on pre-trained language models, please send your resume to zhangxinsong.0320@bytedance.com.
