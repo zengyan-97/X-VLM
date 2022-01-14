@@ -102,10 +102,10 @@ def run_pretrain_nlvr(args):
 
     # run fine-tune
     if len(args.output_dir): args.output_dir += '_nlvr2'
-    run_nlvr2(load_nlvr_pretrain=True)
+    run_nlvr2(args, load_nlvr_pretrain=True)
 
 
-def run_pretrain_refcoco_bbox():
+def run_pretrain_refcoco_bbox(args):
     print("### Start refcoco bbox domain pre-training", flush=True)
 
     dist_launch = get_dist_launch(args)
@@ -125,10 +125,10 @@ def run_pretrain_refcoco_bbox():
 
     # run fine-tune
     if len(args.output_dir): args.output_dir += '_refcoco'
-    run_refcoco(use_bbox=True, load_bbox_pretrain=True)
+    run_refcoco(args, use_bbox=True, load_bbox_pretrain=True)
 
 
-def run_nlvr2(load_nlvr_pretrain=False):
+def run_nlvr2(args, load_nlvr_pretrain=False):
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/nlvr2")
@@ -140,7 +140,7 @@ def run_nlvr2(load_nlvr_pretrain=False):
               f"{'--evaluate' if args.evaluate else ''}")
 
 
-def run_itr_flickr():
+def run_itr_flickr(args):
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/flickr30k-images")
@@ -151,7 +151,7 @@ def run_itr_flickr():
               f"--output_dir {args.output_dir} --bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
 
 
-def run_itr_coco():
+def run_itr_coco(args):
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/coco")
@@ -176,7 +176,7 @@ def run_vqa(args):
               f"--bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
 
 
-def run_refcoco(use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-1):
+def run_refcoco(args, use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-1):
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/coco")
@@ -207,15 +207,11 @@ def run(args):
         args.config = 'configs/Pretrain_XVLM_base_4m.yaml'
         run_pretrain(args)
 
-    elif args.task == 'itr_2_tasks':
-        run_itr_coco()
-        run_itr_flickr()
-
     elif args.task == 'itr_coco':
-        run_itr_coco()
+        run_itr_coco(args)
 
     elif args.task == 'itr_flickr':
-        run_itr_flickr()
+        run_itr_flickr(args)
 
     elif args.task == 'vqa':
         run_vqa(args)
@@ -227,21 +223,21 @@ def run(args):
 
     elif args.task == 'nlvr':
         run_pretrain_nlvr(args)
-        # run_nlvr2()  # w/o domain pretrain
+        # run_nlvr2(args)  # w/o domain pretrain
 
     elif args.task == 'refcoco_weakly':
-        run_refcoco(block_num=9)  # 9 for X-VLM base
+        run_refcoco(args, block_num=9)  # 9 for X-VLM base
 
     elif args.task == 'refcoco_block_num_search':  # for refcoco_weakly
         # block_num: use which layer of the cross-modal encoder for calculation
         # it is a critical hyper-param for refcoco without bbox annotations
         for num in [8, 9, 10, 7]:
             print(f"### block_num {num}")
-            run_refcoco(block_num=num, epochs=1)
+            run_refcoco(args, block_num=num, epochs=1)
 
     elif args.task == 'refcoco_bbox':
-        run_pretrain_refcoco_bbox()
-        # run_refcoco(use_bbox=True)  # w/o domain pretrain
+        run_pretrain_refcoco_bbox(args)
+        # run_refcoco(args, use_bbox=True)  # w/o domain pretrain
 
     else:
         raise NotImplementedError(f"task == {args.task}")
