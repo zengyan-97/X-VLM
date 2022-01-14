@@ -157,7 +157,7 @@ def main(args, config):
     print("Creating dataset")
     dataset = create_dataset('grounding_bbox_pretrain', config)
 
-    loader = torch.utils.data.DataLoader(dataset, batch_size=config['regions']['batch_size'],
+    loader = torch.utils.data.DataLoader(dataset, batch_size=config['regions']['max_images'],
                                                num_workers=config['regions']['num_workers'],
                                                pin_memory=True,
                                                drop_last=False,
