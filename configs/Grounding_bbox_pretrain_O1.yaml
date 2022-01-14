@@ -1,0 +1,54 @@
+train_file_regions: [
+    'hdfs://path/to/coco_objs',
+    'hdfs://path/to/vg_objs',
+    'hdfs://path/to/vg_regions',
+]
+
+train_dataset_size: 318547
+regions: {image_key: "binary", is_image_rpath: False, caption_key: "caption", tokenized: False,
+          iter_perc: 1.0, batch_size: 24, max_images: 9, max_regions: 5, min_perc_in_image: 0.5, num_workers: 4}
+
+refcoco_data: 'data/finetune/'
+det_file: 'data/finetune/refcoco+/dets.json'
+coco_file: 'data/finetune/refcoco+/cocos.json'
+image_root: 'images/coco/'
+
+## Vision Encoder
+vision_config: 'configs/config_swinB_224.json'
+
+use_clip_vit: False
+#image_res: 224
+#patch_size: 16
+
+use_swin: True
+image_res: 224
+patch_size: 32
+
+
+## Text Encoder
+use_roberta: False
+text_config: 'configs/config_bert.json'  # ['configs/config_bert.json', 'configs/config_roberta.json']
+text_encoder: 'data/bert-base-uncased'  # ['data/bert-base-uncased', 'data/roberta-base']
+
+load_bertL_by_sep: False # loading parameters 12L -> 6L, for X-VLM-large
+
+
+## Training
+calc_image_bbox_loss: False
+
+max_words: 40
+max_tokens: 40
+#### these will not be activated
+mask_whole_word: True
+mask_prob: 0.25
+max_masks: 8
+skipgram_prb: 0.2
+skipgram_size: 3
+####
+
+
+## Other Settings
+optimizer: {opt: adamW, lr: 3e-5, weight_decay: 0.01, lr_mult: 2}
+schedular: {sched: linear, lr: 3e-5, epochs: 2, num_warmup_steps: 0.1}
+accelerator: {SYNCBN: false, FP16_OPT_LEVEL: O1, FP16_LOSS_SCALE: dynamic, RNG_SEED: 42, GRAD_ACCUMULATE_STEPS: 1, CLIP_GRAD_NORM: 1.0}
+

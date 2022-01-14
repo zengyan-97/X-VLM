@@ -1,0 +1,50 @@
+train_file: [
+    "hdfs://path/to/coco",
+    "hdfs://path/to/vg",
+    "hdfs://path/to/sbu",
+    "hdfs://path/to/cc3m",
+               ]
+
+train_dataset_size: 5114489 # for IterableDataset
+images: {image_key: "binary",
+         is_image_rpath: False, # read path or base64 encoding
+         caption_key: "caption",
+         tokenized: False,  # whether texts have been tokenized
+         batch_size: 128,
+         num_workers: 4,  # better -> the number of training files % (world_size * num_workers) == 0
+}
+
+## Vision Encoder
+vision_config: 'configs/config_swinB_224.json'
+
+use_clip_vit: False
+#image_res: 224
+#patch_size: 16
+
+use_swin: True
+image_res: 224
+patch_size: 32
+
+
+## Text Encoder
+use_roberta: False
+text_config: 'configs/config_bert.json'  # ['configs/config_bert.json', 'configs/config_roberta.json']
+text_encoder: 'data/bert-base-uncased'  # ['data/bert-base-uncased', 'data/roberta-base']
+
+load_bertL_by_sep: False # loading parameters 12L -> 6L, for X-VLM-large
+
+## Training
+embed_dim: 256
+
+max_words: 40
+max_tokens: 40
+mask_prob: 0.25
+max_masks: 8
+mask_whole_word: True
+skipgram_prb: 0.2
+skipgram_size: 3
+
+## Other Settings
+optimizer: {opt: adamW, lr: 3e-5, weight_decay: 0.01, lr_mult: 2}
+schedular: {sched: linear, lr: 3e-5, epochs: 2, num_warmup_steps: 0.1}
+accelerator: {SYNCBN: false, FP16_OPT_LEVEL: O1, FP16_LOSS_SCALE: dynamic, RNG_SEED: 42, GRAD_ACCUMULATE_STEPS: 1, CLIP_GRAD_NORM: 1.0}
