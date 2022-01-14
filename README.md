@@ -4,7 +4,7 @@
 
 - Jan 2022: release official PyTorch implementation and X-VLM-base checkpoints
 - Dec 2021: X-VLM-base (4M) achieves new SoTA  
-  <img src="x-vlm-base-4m.png" width="800">
+  <img src="x-vlm-base-4m.png" width="1000">
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
 
 
