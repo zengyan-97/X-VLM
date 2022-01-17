@@ -18,6 +18,9 @@ class XVLM(XVLMBase):
 
         text_embeds = self.get_text_embeds(text_ids, text_atts)
 
+        with torch.no_grad():
+            self.temp.clamp_(0.001, 0.5)
+
         image_feat, text_feat = self.get_features(image_embeds, text_embeds)
 
         loss_itc = self.get_contrastive_loss(image_feat, text_feat)

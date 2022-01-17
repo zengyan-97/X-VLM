@@ -347,11 +347,7 @@ class XVLMBase(nn.Module):
         else:
             raise ValueError
 
-    def get_features(self, image_embeds=None, text_embeds=None, clamp_temp=True):
-        if clamp_temp:
-            with torch.no_grad():
-                self.temp.clamp_(0.001, 0.5)
-
+    def get_features(self, image_embeds=None, text_embeds=None):
         if image_embeds is None:
             return F.normalize(self.text_proj(text_embeds[:, 0, :]), dim=-1)
         elif text_embeds is None:

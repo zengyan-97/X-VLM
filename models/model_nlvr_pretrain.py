@@ -65,7 +65,7 @@ class XVLM(XVLMBase):
         image_embeds, image_atts = self.get_vision_embeds(image)
 
         with torch.no_grad():
-            image_feat = self.get_features(image_embeds=image_embeds, clamp_temp=False)
+            image_feat = self.get_features(image_embeds=image_embeds)
             sim = image_feat @ image_feat.t() / 0.07
             weights = F.softmax(sim, dim=1)
             weights.fill_diagonal_(0)
