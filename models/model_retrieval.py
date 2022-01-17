@@ -8,6 +8,7 @@ class XVLM(XVLMBase):
                          use_contrastive_loss=True, use_matching_loss=True, use_mlm_loss=False, use_bbox_loss=False)
 
         self.num_attention_heads = self.text_encoder.config.num_attention_heads
+        self.init_params = []
 
     def load_pretrained(self, ckpt_rpath, config, is_eval=False):
         state_dict = load_pretrained(ckpt_rpath, config, is_eval=is_eval, load_text=True)

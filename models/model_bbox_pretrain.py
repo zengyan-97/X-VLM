@@ -6,6 +6,7 @@ class XVLM(XVLMBase):
     def __init__(self, config):
         super().__init__(config, load_vision_params=False, load_text_params=False,
                          use_contrastive_loss=False, use_matching_loss=False, use_mlm_loss=False, use_bbox_loss=True)
+        self.init_params = []
 
     def load_pretrained(self, ckpt_rpath, config):
         state_dict = load_pretrained(ckpt_rpath, config, is_eval=False, load_text=True)

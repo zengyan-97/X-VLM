@@ -39,8 +39,10 @@ class XVLM(XVLMBase):
             self.text_decoder = BertLMHeadModel.from_pretrained(config['text_encoder'], config=config_dec)
 
         if self.dec_encoder_width != self.cross_encoder_width:
-            self.init_params.extend(['text_decoder.' + n for n, _ in self.text_decoder.named_parameters()
-                                if ('crossattention.self.key' in n) or ('crossattention.self.value' in n)])
+            self.init_params = ['text_decoder.' + n for n, _ in self.text_decoder.named_parameters()
+                                if ('crossattention.self.key' in n) or ('crossattention.self.value' in n)]
+        else:
+            self.init_params = []
 
     def load_pretrained(self, ckpt_rpath, config, is_eval=False):
         if is_eval:

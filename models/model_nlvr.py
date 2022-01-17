@@ -23,7 +23,7 @@ class XVLM(XVLMBase):
         self.share_cross_attention(self.text_encoder.encoder)
 
         self.cls_head = build_mlp(input_dim=self.text_width, output_dim=2)
-        self.init_params.extend(['cls_head.' + n for n, _ in self.cls_head.named_parameters()])
+        self.init_params = ['cls_head.' + n for n, _ in self.cls_head.named_parameters()]
 
     def load_pretrained(self, ckpt_rpath, config, load_nlvr_pretrain=False, is_eval=False):
         if is_eval:

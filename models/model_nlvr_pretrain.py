@@ -23,7 +23,7 @@ class XVLM(XVLMBase):
         self.share_cross_attention(self.text_encoder.encoder)
         self.vision_proj = nn.Linear(self.vision_width, config['embed_dim'])
         self.ta_head = nn.Linear(self.text_width, 3)
-        self.init_params.extend([n for n, _ in self.ta_head.named_parameters()])
+        self.init_params = ['ta_head.' + n for n, _ in self.ta_head.named_parameters()]
 
     def load_pretrained(self, ckpt_rpath, config):
         state_dict = load_pretrained(ckpt_rpath, config, is_eval=False, load_text=False)
