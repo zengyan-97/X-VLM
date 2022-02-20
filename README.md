@@ -6,7 +6,7 @@
 - Jan 2022: release official PyTorch implementation and X-VLM checkpoints
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
  
-  <img src="x-vlm-results.png" width="800">
+  <img src="x-vlm-results.png" width="600">
 
 
 
