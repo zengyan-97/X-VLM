@@ -1182,6 +1182,48 @@ class BertForPreTraining(BertPreTrainedModel):
         )
 
 
+class LabelSmoothSoftmaxCEV1(nn.Module):
+    '''
+    This is the autograd version, you can also try the LabelSmoothSoftmaxCEV2 that uses derived gradients
+    '''
+    def __init__(self, lb_smooth=0.1, reduction='mean', ignore_index=-100):
+        super(LabelSmoothSoftmaxCEV1, self).__init__()
+        self.lb_smooth = lb_smooth
+        self.reduction = reduction
+        self.lb_ignore = ignore_index
+        self.log_softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, logits, label):
+        '''
+        Same usage method as nn.CrossEntropyLoss:
+            # >>> criteria = LabelSmoothSoftmaxCEV1()
+            # >>> logits = torch.randn(8, 19, 384, 384) # nchw, float/half
+            # >>> lbs = torch.randint(0, 19, (8, 384, 384)) # nhw, int64_t
+            # >>> loss = criteria(logits, lbs)
+        '''
+        # overcome ignored label
+        logits = logits.float()  # use fp32 to avoid nan
+        with torch.no_grad():
+            num_classes = logits.size(1)
+            label = label.clone().detach()
+            ignore = label.eq(self.lb_ignore)
+            n_valid = ignore.eq(0).sum()
+            label[ignore] = 0
+            lb_pos, lb_neg = 1. - self.lb_smooth, self.lb_smooth / num_classes
+            lb_one_hot = torch.empty_like(logits).fill_(
+                lb_neg).scatter_(1, label.unsqueeze(1), lb_pos).detach()
+
+        logs = self.log_softmax(logits)
+        loss = -torch.sum(logs * lb_one_hot, dim=1)
+        loss[ignore] = 0
+        if self.reduction == 'mean':
+            loss = loss.sum() / n_valid
+        if self.reduction == 'sum':
+            loss = loss.sum()
+
+        return loss
+
+
 @add_start_docstrings(
     """Bert Model with a `language modeling` head on top for CLM fine-tuning. """, BERT_START_DOCSTRING
 )
@@ -1190,11 +1232,14 @@ class BertLMHeadModel(BertPreTrainedModel):
     _keys_to_ignore_on_load_unexpected = [r"pooler"]
     _keys_to_ignore_on_load_missing = [r"position_ids", r"predictions.decoder.bias"]
 
-    def __init__(self, config):
+    def __init__(self, config, label_smoothing=0.0):
         super().__init__(config)
 
         self.bert = BertModel(config, add_pooling_layer=False)
+
         self.cls = BertOnlyMLMHead(config)
+
+        self.label_smoothing = label_smoothing
 
         self.init_weights()
 
@@ -1292,10 +1337,16 @@ class BertLMHeadModel(BertPreTrainedModel):
             # we are doing next-token prediction; shift prediction scores and input ids by one
             shifted_prediction_scores = prediction_scores[:, :-1, :].contiguous()
             labels = labels[:, 1:].contiguous()
-            loss_fct = CrossEntropyLoss(reduction=reduction)
+
+            if self.label_smoothing > 0:
+                loss_fct = LabelSmoothSoftmaxCEV1(lb_smooth=self.label_smoothing, reduction=reduction)
+            else:
+                loss_fct = CrossEntropyLoss(reduction=reduction)
+
             lm_loss = loss_fct(shifted_prediction_scores.view(-1, self.config.vocab_size), labels.view(-1))
-            lm_loss = lm_loss.view(prediction_scores.size(0),-1).sum(1)
-            
+            if reduction == 'none':
+                lm_loss = lm_loss.view(prediction_scores.size(0),-1).sum(1)
+
         if not return_dict:
             output = (prediction_scores,) + outputs[2:]
             return ((lm_loss,) + output) if lm_loss is not None else output
@@ -1333,6 +1384,134 @@ class BertLMHeadModel(BertPreTrainedModel):
         for layer_past in past:
             reordered_past += (tuple(past_state.index_select(0, beam_idx) for past_state in layer_past),)
         return reordered_past
+
+    def _generate_no_beam_search(
+        self,
+        input_ids,
+        cur_len,
+        max_length,
+        do_sample,
+        temperature,
+        top_k,
+        top_p,
+        repetition_penalty,
+        pad_token_id,
+        eos_token_ids,
+        batch_size,
+        **model_kwargs
+    ):
+        """ Generate sequences for each example without beam search (num_beams == 1).
+            All returned sequence are generated independantly.
+        """
+        # current position / max lengths / length of generated sentences / unfinished sentences
+        unfinished_sents = []
+        cur_unfinished = input_ids.new(batch_size).fill_(1)
+
+        # log of scores for each sentence in the batch
+        logprobs = []
+
+        while cur_len < max_length:
+            model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+
+            outputs = self(**model_inputs, return_dict=True)
+            next_token_logits = outputs.logits[:, -1, :]
+
+            # repetition penalty from CTRL paper (https://arxiv.org/abs/1909.05858)
+            if repetition_penalty != 1.0:
+                for i in range(batch_size):
+                    for previous_token in set(input_ids[i].tolist()):
+                        # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
+                        if next_token_logits[i, previous_token] < 0:
+                            next_token_logits[i, previous_token] *= repetition_penalty
+                        else:
+                            next_token_logits[i, previous_token] /= repetition_penalty
+
+            if do_sample:
+                # Temperature (higher temperature => more likely to sample low probability tokens)
+                if temperature != 1.0:
+                    next_token_logits = next_token_logits / temperature
+                # Top-p/top-k filtering
+                next_token_logits = top_k_top_p_filtering(next_token_logits, top_k=top_k, top_p=top_p)
+                # Sample
+                next_token = torch.multinomial(F.softmax(next_token_logits, dim=-1), num_samples=1).squeeze(1)
+            else:
+                # Greedy decoding
+                next_token = torch.argmax(next_token_logits, dim=-1)
+
+            # Compute scores
+            _scores = F.log_softmax(next_token_logits, dim=-1)  # (batch_size, vocab_size)
+            _scores = torch.gather(_scores, -1, next_token.unsqueeze(-1))  # (batch_size, 1)
+            logprobs.append(_scores)  # (batch_size, 1)
+            unfinished_sents.append(cur_unfinished)
+
+            # update generations and finished sentences
+            tokens_to_add = next_token * cur_unfinished + pad_token_id * (1 - cur_unfinished)
+            input_ids = torch.cat([input_ids, tokens_to_add.unsqueeze(-1)], dim=-1)
+
+            model_kwargs = self._update_model_kwargs_for_generation(
+                outputs, model_kwargs, is_encoder_decoder=self.config.is_encoder_decoder
+            )
+            cur_len = cur_len + 1
+
+            for eos_token_id in eos_token_ids:
+                cur_unfinished = cur_unfinished.mul(tokens_to_add.ne(eos_token_id).long())
+
+            # stop when there is a </s> in each sentence, or if we exceed the maximul length
+            if cur_unfinished.max() == 0:
+                break
+
+        # add eos_token_ids to unfinished sentences
+        if cur_len == max_length:
+            input_ids[:, -1].masked_fill_(cur_unfinished.to(dtype=torch.bool), eos_token_ids[0])
+
+        logprobs = torch.cat(logprobs, dim=1)
+        unfinished_sents = torch.stack(unfinished_sents, dim=1).float()
+        sum_logprobs = (logprobs * unfinished_sents).sum(dim=1)
+        # return logprobs to keep consistent with beam search output
+        logprobs = sum_logprobs / unfinished_sents.sum(dim=1)
+
+        # pad to the same length, otherwise DataParallel will give error
+        pad_len = max_length - input_ids.shape[1]
+        if pad_len > 0:
+            padding_ids = input_ids.new(batch_size, pad_len).fill_(pad_token_id)
+            input_ids = torch.cat([input_ids, padding_ids], dim=1)
+
+        return input_ids, logprobs
+
+
+def top_k_top_p_filtering(logits, top_k=0, top_p=1.0, filter_value=-float("Inf"), min_tokens_to_keep=1):
+    """ Filter a distribution of logits using top-k and/or nucleus (top-p) filtering
+        Args:
+            logits: logits distribution shape (batch size, vocabulary size)
+            if top_k > 0: keep only top k tokens with highest probability (top-k filtering).
+            if top_p < 1.0: keep the top tokens with cumulative probability >= top_p (nucleus filtering).
+                Nucleus filtering is described in Holtzman et al. (http://arxiv.org/abs/1904.09751)
+            Make sure we keep at least min_tokens_to_keep per batch example in the output
+        From: https://gist.github.com/thomwolf/1a5a29f6962089e871b94cbd09daf317
+    """
+    if top_k > 0:
+        top_k = min(max(top_k, min_tokens_to_keep), logits.size(-1))  # Safety check
+        # Remove all tokens with a probability less than the last token of the top-k
+        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
+        logits[indices_to_remove] = filter_value
+
+    if top_p < 1.0:
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+        # Remove tokens with cumulative probability above the threshold (token with 0 are kept)
+        sorted_indices_to_remove = cumulative_probs > top_p
+        if min_tokens_to_keep > 1:
+            # Keep at least min_tokens_to_keep (set to min_tokens_to_keep-1 because we add the first one below)
+            sorted_indices_to_remove[..., :min_tokens_to_keep] = 0
+        # Shift the indices to the right to keep also the first token above the threshold
+        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+        sorted_indices_to_remove[..., 0] = 0
+
+        # scatter sorted tensors to original indexing
+        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+        logits[indices_to_remove] = filter_value
+    return logits
 
 
 @add_start_docstrings("""Bert Model with a `language modeling` head on top. """, BERT_START_DOCSTRING)

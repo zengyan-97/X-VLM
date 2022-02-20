@@ -2,11 +2,14 @@ from torch.optim.lr_scheduler import LambdaLR
 
 
 def create_scheduler(args, optimizer):
-    args['num_training_steps'] = args['epochs'] * args['step_per_epoch']
+    if 'num_training_steps' not in args:
+        args['num_training_steps'] = args['epochs'] * args['step_per_epoch']
+    print("### num_training_steps, ", args['num_training_steps'], flush=True)
+
     if isinstance(args['num_warmup_steps'], float):
         assert 0 <= args['num_warmup_steps'] < 1
         args['num_warmup_steps'] = int(args['num_training_steps'] * args['num_warmup_steps'])
-    print("### num_warmup_steps, ", args['num_warmup_steps'])
+    print("### num_warmup_steps, ", args['num_warmup_steps'], flush=True)
 
     if args.sched == 'linear':
         def lr_lambda(current_step: int):

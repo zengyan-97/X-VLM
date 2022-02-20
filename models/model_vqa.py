@@ -34,9 +34,9 @@ class XVLM(XVLMBase):
 
         if config['use_roberta']:
             raise NotImplementedError("bugs to fix: with roberta, the accuracy will be extreme low")
-            self.text_decoder = RobertaForCausalLM.from_pretrained(config['text_encoder'], config=config_dec)
+            # self.text_decoder = RobertaForCausalLM(config=config_dec)
         else:
-            self.text_decoder = BertLMHeadModel.from_pretrained(config['text_encoder'], config=config_dec)
+            self.text_decoder = BertLMHeadModel(config=config_dec)
 
         if self.dec_encoder_width != self.cross_encoder_width:
             self.init_params = ['text_decoder.' + n for n, _ in self.text_decoder.named_parameters()

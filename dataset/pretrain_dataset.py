@@ -126,7 +126,7 @@ class TextMaskingGenerator:
 
 
 class ImageTextJsonDataset(DistLineReadingDataset):
-    def __init__(self, config, data_path, rank=0, world_size=1, shuffle=True, repeat=True, transform=None):
+    def __init__(self, config, data_path, rank=0, world_size=1, shuffle=True, repeat=True, transform=None, add_eos=False):
         super().__init__(data_path, rank, world_size, shuffle, repeat)
 
         if 'images' in config.keys():
@@ -140,11 +140,15 @@ class ImageTextJsonDataset(DistLineReadingDataset):
         self.tokenizer = RobertaTokenizer.from_pretrained(config['text_encoder']) if self.use_roberta else \
             BertTokenizer.from_pretrained(config['text_encoder'])
 
+        self.add_eos = add_eos
+
         self.cls_token = self.tokenizer.cls_token
+        self.eos_token = self.tokenizer.sep_token
         self.pad_token_id = self.tokenizer.pad_token_id
         self.mask_token_id = self.tokenizer.mask_token_id
 
         print("dataset.cls_token, ", self.cls_token, flush=True)
+        print("dataset.eos_token, ", self.eos_token, flush=True)
         print("dataset.pad_token_id, ", self.pad_token_id, flush=True)
         print("dataset.mask_token_id, ", self.mask_token_id, flush=True)
 
@@ -200,6 +204,10 @@ class ImageTextJsonDataset(DistLineReadingDataset):
 
         tokens = [self.cls_token] + tokens[:self.max_tokens - 1]
 
+        if self.add_eos:
+            tokens = tokens[:self.max_tokens - 1]
+            tokens += [self.eos_token]
+
         n_tokens = len(tokens)
         assert n_tokens >= 2, "len(word tokens) < 2"
 
@@ -245,6 +253,7 @@ class RegionTextJsonDataset(ImageTextJsonDataset):
         assert self.caption_key == 'caption', "please follow my data format"
         self.batch_size = config['regions']['batch_size']
         self.tokenized = config['regions']['tokenized']
+        self.careful_hflip = config['regions']['careful_hflip'] if 'careful_hflip' in config['regions'] else False
 
         self.box_transform = box_transform
         self.max_regions = config['regions']['max_regions']
@@ -253,6 +262,26 @@ class RegionTextJsonDataset(ImageTextJsonDataset):
     def get_bbox(self, ann):
         x, y, w, h = ann['bb']
         return int(x), int(y), int(w), int(h)
+
+    def left_or_right_in_caption(self, ann):
+        def _in_it(elem):
+            if isinstance(elem['caption'], list):
+                for caption in elem['caption']:
+                    if ('left' in caption) or ('right' in caption):
+                        return True
+            else:
+                if ('left' in elem['caption']) or ('right' in elem['caption']):
+                    return True
+
+        if 'caption' in ann.keys():
+            if _in_it(ann):
+                return True
+
+        for elem in ann['elems']:
+            if _in_it(elem):
+                return True
+
+        return False
 
     def __iter__(self):
         for example in self.generate():
@@ -282,8 +311,11 @@ class RegionTextJsonDataset(ImageTextJsonDataset):
 
                 do_hflip = False
                 if rand() < 0.5:
-                    image = hflip(image)
-                    do_hflip = True
+                    if self.careful_hflip and self.left_or_right_in_caption(ann):
+                        pass
+                    else:
+                        image = hflip(image)
+                        do_hflip = True
 
                 image = resize(image, [self.image_res, self.image_res], interpolation=Image.BICUBIC)
                 image = self.box_transform(image)

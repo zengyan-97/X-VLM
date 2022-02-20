@@ -287,6 +287,13 @@ class XVLMBase(nn.Module):
             self.bbox_head = build_mlp(input_dim=self.text_width, output_dim=4)
             self.init_params.extend(['bbox_head.' + n for n, _ in self.bbox_head.named_parameters()])
 
+    def load_pretrained(self, ckpt_rpath, config, is_eval=False):
+        state_dict = load_pretrained(ckpt_rpath, config, is_eval=is_eval, load_text=True)
+        msg = self.load_state_dict(state_dict, strict=False)
+        print('load checkpoint from %s' % ckpt_rpath)
+        print("missing_keys: ", [p for p in msg.missing_keys if 'vision_encoder' not in p])
+        print("unexpected_keys: ", msg.unexpected_keys)
+
     def get_vision_embeds(self, image, image_atts=None, idx_to_group_img=None):
         """
         vision_embeds: cls + patch embeds

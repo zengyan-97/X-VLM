@@ -9,6 +9,8 @@ from dataset.pretrain_dataset import ImageTextJsonDataset, RegionTextJsonDataset
 from dataset.nlvr_dataset import nlvr_dataset
 from dataset.vqa_dataset import vqa_dataset
 from dataset.grounding_dataset import grounding_dataset, grounding_dataset_bbox
+from dataset.coco_karpathy_dataset import coco_karpathy_train, coco_karpathy_train_scst, coco_karpathy_caption_eval
+
 
 from dataset.randaugment import RandomAugment
 
@@ -30,6 +32,16 @@ def create_dataset(dataset, config):
         transforms.RandomResizedCrop(config['image_res'], scale=(0.5, 1.0),
                                      interpolation=Image.BICUBIC),
         transforms.RandomHorizontalFlip(),
+        RandomAugment(2, 7, isPIL=True, augs=['Identity', 'AutoContrast', 'Equalize', 'Brightness', 'Sharpness',
+                                              'ShearX', 'ShearY', 'TranslateX', 'TranslateY', 'Rotate']),
+        transforms.ToTensor(),
+        normalize,
+    ])
+
+    train_transform_wohflip = transforms.Compose([
+        transforms.RandomResizedCrop(config['image_res'], scale=(0.5, 1.0),
+                                     interpolation=Image.BICUBIC),
+        # transforms.RandomHorizontalFlip(),
         RandomAugment(2, 7, isPIL=True, augs=['Identity', 'AutoContrast', 'Equalize', 'Brightness', 'Sharpness',
                                               'ShearX', 'ShearY', 'TranslateX', 'TranslateY', 'Rotate']),
         transforms.ToTensor(),
@@ -66,7 +78,7 @@ def create_dataset(dataset, config):
         return train_dataset, val_dataset, test_dataset
 
     elif dataset == 'vqa':
-        train_dataset = vqa_dataset(config['train_file'], train_transform, config['vqa_root'], config['vg_root'],
+        train_dataset = vqa_dataset(config['train_file'], train_transform_wohflip, config['vqa_root'], config['vg_root'],
                                     split='train', text_encoder=config['text_encoder'], use_roberta=config['use_roberta'])
         vqa_test_dataset = vqa_dataset(config['test_file'], test_transform, config['vqa_root'], config['vg_root'],
                                        split='test', answer_list=config['answer_list'], text_encoder=config['text_encoder'], use_roberta=config['use_roberta'])
@@ -116,6 +128,30 @@ def create_dataset(dataset, config):
         test_dataset = grounding_dataset_bbox(config['test_file'], test_transform, config['image_root'], mode='test', config=config)
         return train_dataset, test_dataset
 
+    elif dataset == 'captioning_pretrain':
+        general_dataset = ImageTextJsonDataset(config, config['train_file'], rank=int(os.environ.get('RANK') or 0),
+                                               world_size=int(os.environ.get('WORLD_SIZE') or 1), shuffle=True, repeat=True,
+                                               transform=pretrain_transform, add_eos=True)
+        return general_dataset
+
+    elif dataset == 'caption_coco':
+        train_dataset = coco_karpathy_train(train_transform, config['image_root'], config['train_file'], prompt=config['prompt'], max_words=config['max_tokens'])
+        val_dataset = coco_karpathy_caption_eval(test_transform, config['image_root'], config['val_file'], 'val')
+        test_dataset = coco_karpathy_caption_eval(test_transform, config['image_root'], config['test_file'], 'test')
+
+        return train_dataset, val_dataset, test_dataset
+
+    elif dataset == 'caption_coco_scst':
+        train_dataset = coco_karpathy_train_scst(train_transform, config['image_root'], config['train_file'],
+                                            prompt=config['prompt'], max_words=config['max_tokens'])
+        val_dataset = coco_karpathy_caption_eval(test_transform, config['image_root'], config['val_file'], 'val')
+        test_dataset = coco_karpathy_caption_eval(test_transform, config['image_root'], config['test_file'], 'test')
+
+        return train_dataset, val_dataset, test_dataset
+
+    else:
+        raise NotImplementedError(f"dataset == {dataset}")
+
 
 def vqa_collate_fn(batch):
     image_list, question_list, answer_list, weight_list, n = [], [], [], [], []
@@ -157,4 +193,8 @@ def create_loader(datasets, samplers, batch_size, num_workers, is_trains, collat
             drop_last=drop_last,
         )
         loaders.append(loader)
+
+    if len(loaders) <= 1:
+        print(f"### be careful: func create_loader returns a list length of {len(loaders)}")
+
     return loaders

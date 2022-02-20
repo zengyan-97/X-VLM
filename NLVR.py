@@ -114,6 +114,7 @@ def main(args, config):
 
     if utils.is_main_process():
         print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
+        print(f"### test data {len(test_dataset)}", flush=True)
 
     if args.distributed:
         num_tasks = utils.get_world_size()
