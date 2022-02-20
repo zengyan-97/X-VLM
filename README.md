@@ -9,6 +9,7 @@
   <img src="x-vlm-results.png" width="800">
 
 
+
 ## Hiring
 We are looking for interns / FTEs at ByteDance AI-LAB (in Beijing / Shanghai)! If you are interested in working with us on vision language models, please send your resume to 
 zhangxinsong.0320@bytedance.com.
