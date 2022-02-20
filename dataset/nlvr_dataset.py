@@ -33,7 +33,11 @@ class nlvr_dataset(Dataset):
 
         if ann['label'] == 'True':
             label = 1
-        else:
+
+        elif ann['label'] == 'False':
             label = 0
+
+        else:
+            raise ValueError(f"unsupported label: {ann['label']}")
 
         return image0, image1, sentence, label

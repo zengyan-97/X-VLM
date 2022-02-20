@@ -1,14 +1,14 @@
 train_file: [
-    "hdfs://path/to/coco",
+    "hdfs://path/to/coco",  # a directory, which contains for example 64 files. Each file contains multiple lines, and each line is a json object(dict).
     "hdfs://path/to/vg",
     "hdfs://path/to/sbu",
     "hdfs://path/to/cc3m",
-               ]
+               ]  # local files are also ok
 
 train_dataset_size: 5114489 # for IterableDataset
 images: {image_key: "binary",
          is_image_rpath: False, # read path or base64 encoding
-         caption_key: "caption",
+         caption_key: "desc",
          tokenized: False,  # whether texts have been tokenized
          batch_size: 128,
          num_workers: 4,  # better -> the number of training files % (world_size * num_workers) == 0
@@ -38,11 +38,14 @@ embed_dim: 256
 
 max_words: 40
 max_tokens: 40
+#### these will not be activated
+mask_whole_word: True
 mask_prob: 0.25
 max_masks: 8
-mask_whole_word: True
 skipgram_prb: 0.2
 skipgram_size: 3
+####
+
 
 ## Other Settings
 optimizer: {opt: adamW, lr: 3e-5, weight_decay: 0.01, lr_mult: 2}

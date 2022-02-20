@@ -73,6 +73,7 @@ def get_from_hdfs(file_hdfs):
 
     else:
         file_local = file_hdfs
+        assert os.path.exists(file_local)
 
     return file_local
 
@@ -102,10 +103,10 @@ def run_pretrain_nlvr(args):
 
     # run fine-tune
     if len(args.output_dir): args.output_dir += '_nlvr2'
-    run_nlvr2(args, load_nlvr_pretrain=True)
+    run_nlvr2(load_nlvr_pretrain=True)
 
 
-def run_pretrain_refcoco_bbox(args):
+def run_pretrain_refcoco_bbox():
     print("### Start refcoco bbox domain pre-training", flush=True)
 
     dist_launch = get_dist_launch(args)
@@ -125,10 +126,10 @@ def run_pretrain_refcoco_bbox(args):
 
     # run fine-tune
     if len(args.output_dir): args.output_dir += '_refcoco'
-    run_refcoco(args, use_bbox=True, load_bbox_pretrain=True)
+    run_refcoco(use_bbox=True, load_bbox_pretrain=True)
 
 
-def run_nlvr2(args, load_nlvr_pretrain=False):
+def run_nlvr2(load_nlvr_pretrain=False):
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/nlvr2")
@@ -140,7 +141,7 @@ def run_nlvr2(args, load_nlvr_pretrain=False):
               f"{'--evaluate' if args.evaluate else ''}")
 
 
-def run_itr_flickr(args):
+def run_itr_flickr():
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/flickr30k-images")
@@ -151,7 +152,7 @@ def run_itr_flickr(args):
               f"--output_dir {args.output_dir} --bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
 
 
-def run_itr_coco(args):
+def run_itr_coco():
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/coco")
@@ -176,7 +177,7 @@ def run_vqa(args):
               f"--bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
 
 
-def run_refcoco(args, use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-1):
+def run_refcoco(use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-1):
     dist_launch = get_dist_launch(args)
 
     assert os.path.exists("images/coco")
@@ -199,6 +200,46 @@ def run_refcoco(args, use_bbox=False, block_num=-1, load_bbox_pretrain=False, ep
                   f"{'--evaluate' if args.evaluate else ''}")
 
 
+def run_pretrain_captioning(args):
+    print("### Start captioning domain pre-training", flush=True)
+
+    dist_launch = get_dist_launch(args)
+
+    if len(args.load_ckpt_from):
+        print(f"### Loading domain pre-trained results from: {args.load_ckpt_from}")
+        domain_ckpt = get_from_hdfs(args.load_ckpt_from)
+
+    else:  # domain pre-train
+        if not os.path.exists(args.config): args.config = f'configs/{args.model}/Captioning_pretrain_O1.yaml'
+
+        os.system(f"{dist_launch} --use_env Captioning_pretrain.py --seed {args.seed} --config {args.config} "
+                  f"--output_dir {args.output_dir} --checkpoint {args.checkpoint}")
+
+        domain_ckpt = get_from_hdfs(f"{args.output_dir}/model_state_epoch_latest.th")
+
+    return domain_ckpt
+
+
+def run_coco_captioning(args, load_capt_pretrain=False, scst=False):
+    dist_launch = get_dist_launch(args)
+
+    assert os.path.exists("images/coco")
+
+    print("### Training COCO Captioning", flush=True)
+
+    if not os.path.exists(args.config):
+        args.config = f'./configs/{args.model}/Captioning.yaml'
+
+    if scst:
+        load_capt_pretrain = True  # same way to load ckpt;
+
+    os.system(f"{dist_launch} "
+              f"--use_env {'Captioning_scst.py' if scst else 'Captioning.py'} --config {args.config} "
+              f"{f'--output_hdfs {args.output_hdfs}' if len(args.output_hdfs) else ''} --output_dir {args.output_dir} "
+              f"--bs {args.bs} --seed {args.seed} --checkpoint {args.checkpoint} "
+              f"{'--scst' if scst else ''}  {'--load_capt_pretrain' if load_capt_pretrain else ''} {'--evaluate' if args.evaluate else ''}")
+
+
 def run(args):
     if args.task not in ['pretrain_4m_base']:
         assert hexists(args.checkpoint) or hexists(args.load_ckpt_from)
@@ -207,11 +248,15 @@ def run(args):
         args.config = 'configs/Pretrain_XVLM_base_4m.yaml'
         run_pretrain(args)
 
+    elif args.task == 'itr_2_tasks':
+        run_itr_coco()
+        run_itr_flickr()
+
     elif args.task == 'itr_coco':
-        run_itr_coco(args)
+        run_itr_coco()
 
     elif args.task == 'itr_flickr':
-        run_itr_flickr(args)
+        run_itr_flickr()
 
     elif args.task == 'vqa':
         run_vqa(args)
@@ -223,21 +268,40 @@ def run(args):
 
     elif args.task == 'nlvr':
         run_pretrain_nlvr(args)
-        # run_nlvr2(args)  # w/o domain pretrain
+        # run_nlvr2()  # w/o domain pretrain
 
     elif args.task == 'refcoco_weakly':
-        run_refcoco(args, block_num=9)  # 9 for X-VLM base
+        run_refcoco(block_num=9)  # 9 for X-VLM base
 
     elif args.task == 'refcoco_block_num_search':  # for refcoco_weakly
         # block_num: use which layer of the cross-modal encoder for calculation
         # it is a critical hyper-param for refcoco without bbox annotations
         for num in [8, 9, 10, 7]:
             print(f"### block_num {num}")
-            run_refcoco(args, block_num=num, epochs=1)
+            run_refcoco(block_num=num, epochs=1)
 
     elif args.task == 'refcoco_bbox':
-        run_pretrain_refcoco_bbox(args)
-        # run_refcoco(args, use_bbox=True)  # w/o domain pretrain
+        run_pretrain_refcoco_bbox()
+        # run_refcoco(use_bbox=True)  # w/o domain pretrain
+
+    elif args.task.startswith('coco_capt_domain'):
+        if args.task == 'coco_capt_domain_14m':
+            args.config = f'configs/{args.model}/Captioning_pretrain_O1_14m.yaml'
+
+        domain_ckpt = run_pretrain_captioning(args)
+
+        # run fine-tune, reset args
+        args.checkpoint = domain_ckpt
+        if hexists(args.output_dir): args.output_dir = os.path.join(args.output_dir, 'coco_capt_ft')
+        args.config = f'./configs/{args.model}/Captioning.yaml'
+        run_coco_captioning(args, load_capt_pretrain=True)
+
+    elif args.task == 'coco_captioning':
+        run_coco_captioning(args, load_capt_pretrain=True)
+
+    elif args.task == 'coco_captioning_scst':  # load checkpoint of 'coco_captioning' results
+        args.config = f'./configs/{args.model}/Captioning_scst.yaml'
+        run_coco_captioning(args, scst=True)
 
     else:
         raise NotImplementedError(f"task == {args.task}")
@@ -272,6 +336,8 @@ if __name__ == '__main__':
         print("### warning: you have not set the path to hadoop_bin (ignore this if you don't use HDFS)")
 
     assert hexists(os.path.dirname(args.output_dir))
+    hmkdir(args.output_dir)
+
     if len(args.output_hdfs):
         assert hexists(os.path.dirname(args.output_hdfs))
 

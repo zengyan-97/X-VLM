@@ -58,6 +58,7 @@ class grounding_dataset_bbox(Dataset):
     def __init__(self, ann_file, transform, image_root, max_words=30, mode='train', config=None):
         self.refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
         self.image_res = config['image_res']
+        self.careful_hflip = config['careful_hflip']
 
         self.ann = []
         for f in ann_file:
@@ -78,6 +79,12 @@ class grounding_dataset_bbox(Dataset):
 
     def __len__(self):
         return len(self.ann)
+
+    def left_or_right_in_caption(self, caption):
+        if ('left' in caption) or ('right' in caption):
+            return True
+
+        return False
 
     def __getitem__(self, index):
 
@@ -106,8 +113,11 @@ class grounding_dataset_bbox(Dataset):
 
             do_hflip = False
             if rand() < 0.5:
-                image = hflip(image)
-                do_hflip = True
+                if self.careful_hflip and self.left_or_right_in_caption(caption):
+                    pass
+                else:
+                    image = hflip(image)
+                    do_hflip = True
 
             image = resize(image, [self.image_res, self.image_res], interpolation=Image.BICUBIC)
             image = self.transform(image)
