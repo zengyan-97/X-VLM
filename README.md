@@ -1,12 +1,26 @@
 # X-VLM: learning multi-grained vision language alignments
 
+
 **[Multi-Grained Vision Language Pre-Training: Aligning Texts with Visual Concepts](https://arxiv.org/abs/2111.08276). Yan Zeng, Xinsong Zhang, Hang Li. arXiv 2021.**
 
 - Feb 2022: X-VLM supports image captioning  
 - Jan 2022: release official PyTorch implementation and X-VLM checkpoints
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
- 
-  <img src="x-vlm-results.png" width="600">
+
+
+X-VLM (base, 240M parameters):
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-coco-2014)](https://paperswithcode.com/sota/cross-modal-retrieval-on-coco-2014?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/image-retrieval-on-flickr30k-1k-test)](https://paperswithcode.com/sota/image-retrieval-on-flickr30k-1k-test?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/referring-expression-segmentation-on-refcoco-3)](https://paperswithcode.com/sota/referring-expression-segmentation-on-refcoco-3?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/referring-expression-segmentation-on-refcoco-4)](https://paperswithcode.com/sota/referring-expression-segmentation-on-refcoco-4?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/referring-expression-segmentation-on-refcoco-5)](https://paperswithcode.com/sota/referring-expression-segmentation-on-refcoco-5?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-reasoning-on-nlvr2-dev)](https://paperswithcode.com/sota/visual-reasoning-on-nlvr2-dev?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-reasoning-on-nlvr2-test)](https://paperswithcode.com/sota/visual-reasoning-on-nlvr2-test?p=multi-grained-vision-language-pre-training)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-question-answering-on-vqa-v2-test-dev)](https://paperswithcode.com/sota/visual-question-answering-on-vqa-v2-test-dev?p=multi-grained-vision-language-pre-training)
+
+<div align="center">
+  <img width="70%" src="x-vlm-results.png">
+</div>
 
 
 ## Hiring
