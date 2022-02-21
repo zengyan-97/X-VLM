@@ -93,7 +93,7 @@ Please prepare your own datasets. Read the code dataset/pretrain_dataset.py to s
 Datasets for finetuning and checkpoints of X-VLM (4M/16M) can be downloaded in following links. 
 
 #### Data 
-[download json files](https://drive.google.com/file/d/19SQGClFK9JnP6z4SH-EZ-xKsPQ3haPG5/view?usp=sharing) 
+[download json files](https://drive.google.com/file/d/1XFz1Vtz7MCBLn4_1QEojhFJ5Iw3eH3X4/view?usp=sharing) 
 
 
 #### Checkpoints and Logs (16M)
