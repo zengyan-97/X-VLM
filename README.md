@@ -19,6 +19,7 @@ X-VLM (base, 240M parameters):
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-question-answering-on-vqa-v2-test-dev)](https://paperswithcode.com/sota/visual-question-answering-on-vqa-v2-test-dev?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/image-captioning-on-coco-captions)](https://paperswithcode.com/sota/image-captioning-on-coco-captions?p=multi-grained-vision-language-pre-training)
 
+
 <div align="center">
   <img width="70%" src="x-vlm-results.png">
 </div>
