@@ -9,7 +9,6 @@
   <img src="x-vlm-results.png" width="600">
 
 
-
 ## Hiring
 We are looking for interns / FTEs at ByteDance AI-LAB (in Beijing / Shanghai)! If you are interested in working with us on vision language models, please send your resume to 
 zhangxinsong.0320@bytedance.com.
@@ -97,23 +96,17 @@ Datasets for finetuning and checkpoints of X-VLM (4M/16M) can be downloaded in f
 [download json files](https://drive.google.com/file/d/19SQGClFK9JnP6z4SH-EZ-xKsPQ3haPG5/view?usp=sharing) 
 
 
-#### Checkpoints and Logs (4M)
-[retrieval-mscoco](https://drive.google.com/drive/folders/1vJ8oBdKlRKulreGq1LGm1s7FZJ0ldL0c?usp=sharing)  
-[retrieval-flickr](https://drive.google.com/drive/folders/1qClf7DfSlOFmaL5rog2Yg4cHCbOzynXO?usp=sharing)  
-[vqa](https://drive.google.com/drive/folders/1xrJuaraEUAMfdJJ6gcV7wMVpCyCSVAYk?usp=sharing)  
-[nlvr2](https://drive.google.com/drive/folders/1oAL6n8vRoXnMreCDxhUhhi2y-k4XT4tZ?usp=sharing)  
-[refcoco](https://drive.google.com/drive/folders/1jMNu2v1oyrcFpTQRRPz8mTkGhbOvVOIk?usp=sharing)  
-[refcoco-weak](https://drive.google.com/drive/folders/1KCRCkVwIb6lNqpIkm-PVNf8eminL4FKH?usp=sharing)  
-[captioning-coco](https://drive.google.com/drive/folders/1wy514_ITSI3qlt6evCbLOHv9H4cosw7u?usp=sharing)
+#### Checkpoints and Logs (16M)
+[retrieval-mscoco](https://drive.google.com/drive/folders/1VotCNmdevvtMuJmdxPfg3MOZXJRnV96D?usp=sharing)  
+[retrieval-flickr](https://drive.google.com/drive/folders/1lsuBVP7MEqGqWkqRxaxb8N8TbSKqQ1Yz?usp=sharing)  
+[vqa](https://drive.google.com/drive/folders/1tRKlCVMvkRquad7kMp4JVEbaKG-Ho8To?usp=sharing)  
+[nlvr2](https://drive.google.com/drive/folders/19Vz9h0oDRcbinUIcbfh-dsNwtlzrkQiP?usp=sharing)  
+[refcoco](https://drive.google.com/drive/folders/1ySQTjpTm5CeHp50YYFObUjT7DTHLN7DZ?usp=sharing)  
+[refcoco-weak](https://drive.google.com/drive/folders/1wvpsA-VONdDUwQdQITG-V7Kc2CkIkbfM?usp=sharing)  
+[captioning-coco](https://drive.google.com/drive/folders/15Ymsay477QKo3PWOt9cwjWpiII5RQaH8?usp=sharing)  
 
-#### Checkpoints and Logs (16M), to be updated soon
-[retrieval-mscoco]()  
-[retrieval-flickr]()  
-[vqa]()  
-[nlvr2]()  
-[refcoco]()  
-[refcoco-weak]()  
-[captioning-coco]()  
+#### Checkpoints and Logs (4M)
+[4m-all-ft-ckpts.tar](https://drive.google.com/file/d/1laNJHBnVGF7onbEYh1vO-b2P5TxdqH-k/view?usp=sharing)
 
 
 
