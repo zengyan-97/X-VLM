@@ -3,12 +3,12 @@
 
 **[Multi-Grained Vision Language Pre-Training: Aligning Texts with Visual Concepts](https://arxiv.org/abs/2111.08276). Yan Zeng, Xinsong Zhang, Hang Li. arXiv 2021.**
 
-- Feb 2022: X-VLM supports image captioning  
+- Feb 2022: X-VLM also supports image captioning  
 - Jan 2022: release official PyTorch implementation and X-VLM checkpoints
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
 
 
-X-VLM (base, 240M parameters)
+X-VLM (base, 240M parameters):
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-coco-2014)](https://paperswithcode.com/sota/cross-modal-retrieval-on-coco-2014?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-flickr30k)](https://paperswithcode.com/sota/cross-modal-retrieval-on-flickr30k?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-grounding-on-refcoco-val)](https://paperswithcode.com/sota/visual-grounding-on-refcoco-val?p=multi-grained-vision-language-pre-training)
@@ -130,15 +130,34 @@ Datasets for finetuning and checkpoints of X-VLM (4M/16M) can be downloaded in f
 # train
 python3 run.py --task "vqa" --dist "1" --output_dir "output/vqa" --checkpoint "4m_base_model_state_step_199999.th"
 
-# if using >2 nodes for fine-tuning, specify --output_hdfs to save some tmp results.
+# train: if using >2 nodes for fine-tuning, specify --output_hdfs to save some tmp results; it is only required by vqa & refcoco 
 python3 run.py --task "vqa" --dist "all" --output_dir "output/vqa" --output_hdfs "hdfs://xxx/vqa_tmp" --checkpoint "4m_base_model_state_step_199999.th"  
 
 # evaluate
-python3 run.py --task "vqa" --dist "1" --evaluate --output_dir "output/vqa_eval" --checkpoint "4m_base_finetune/vqa/model_state_epoch_9.th" 
+python3 run.py --task "vqa" --dist "1" --evaluate --output_dir "output/vqa_eval" --checkpoint "4m_base_finetune/vqa/model_state_epoch_9.th"
 ```
 Specify "--task" to finetune on **image-text retrieval, nlvr2, visual grounding, or image captioning**. See run.py for details.
 
+
+More examples of captioning:
+```angular2html
+# adapt cross-modal encoder + MLM head -> lm decoder; subsequent fine-tuning is included   
+python3 run.py --task "coco_capt_domain" --dist "1" --output_dir "output/coco_capt_domain" --checkpoint "4m_base_model_state_step_199999.th"
+
+# fine-tune only; evaluate is included 
+python3 run.py --task "coco_captioning" --dist "1" --output_dir "output/coco_captioning" --checkpoint "4m_base_finetune/coco_caption/lm_domain_pretrain.th"
+# evaluate only
+python3 run.py --task "coco_captioning" --dist "1" --output_dir "output/coco_captioning" --evaluate --checkpoint "4m_base_finetune/coco_caption/coco_capt_ft_epoch_4.th"
+
+# further CIDEr optimization; evaluate is included 
+python3 run.py --task "coco_captioning_scst" --dist "1" --output_dir "output/coco_captioning_scst" --checkpoint "4m_base_finetune/coco_caption/coco_capt_ft_epoch_4.th"
+# evaluate only
+python3 run.py --task "coco_captioning" --dist "1" --output_dir "output/coco_captioning_scst" --evaluate --checkpoint "4m_base_finetune/coco_caption/coco_capt_cider_step_41000.th"
+```
+
 Some fine-tuning scripts are based on ALBEF, OSCAR, and BLIP. We thank the authors for opening source their code.
+
+
 
 
 ## Citation
