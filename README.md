@@ -181,7 +181,6 @@ python3 run.py --task "eval_vlue_refcoco" --dist "1" --evaluate  --output_dir "o
 python3 run.py --task "eval_vlue_refcoco_weakly" --dist "1" --evaluate  --output_dir "output/" --checkpoint "refcoco/checkpoint_best.pth"
 ```
 
-
 ## Citation
 If you find this repository useful, please considering giving ⭐ or citing:
 ```
