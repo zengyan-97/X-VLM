@@ -111,7 +111,7 @@ class vqa_dataset(Dataset):
                 answers = list(answer_weight.keys())
                 weights = list(answer_weight.values())
 
-            answers = [answer + self.eos_token for answer in answers]
+            answers = [answer + self.eos_token for answer in answers]  # fix bug
 
             return image, question, answers, weights
 

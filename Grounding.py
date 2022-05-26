@@ -11,11 +11,9 @@ import json
 from pathlib import Path
 
 import torch
-import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from models import load_pretrained
 from models.model_retrieval import XVLM
 
 from models.tokenization_bert import BertTokenizer
@@ -23,7 +21,7 @@ from models.tokenization_roberta import RobertaTokenizer
 
 import utils
 from dataset import create_dataset, create_sampler, create_loader
-from dataset.utils import collect_tensor_result, grounding_eval
+from dataset.utils import collect_tensor_result, grounding_eval, grounding_eval_vlue
 from scheduler import create_scheduler
 from optim import create_optimizer
 
@@ -146,30 +144,7 @@ def main(args, config):
     cudnn.benchmark = True
 
     print("Creating dataset")
-    grd_train_dataset, grd_test_dataset = create_dataset('grounding', config) 
-    datasets = [grd_train_dataset, grd_test_dataset]
-
-    train_dataset_size = len(grd_train_dataset)
-    train_batch_size = config['batch_size']
-
-    if utils.is_main_process():
-        print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
-
-    if args.distributed:
-        num_tasks = utils.get_world_size()
-        global_rank = utils.get_rank()            
-        samplers = create_sampler(datasets, [True, False], num_tasks, global_rank)         
-    else:
-        samplers = [None, None]
-
-    train_loader, test_loader = create_loader(datasets, samplers,
-                                              batch_size=[config['batch_size'], config['batch_size']],
-                                              num_workers=[4, 4], is_trains=[True, False], collate_fns=[None, None])
-
-    # refcoco evaluation tools
-    refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
-    dets = json.load(open(config['det_file'], 'r'))
-    cocos = json.load(open(config['coco_file'], 'r'))
+    grd_train_dataset, grd_test_dataset = create_dataset('grounding', config, args.evaluate)
 
     print("Creating model")
     model = XVLM(config=config)
@@ -195,13 +170,32 @@ def main(args, config):
         print("Start evaluating")
         print("### block_num, ", config['block_num'])
 
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler([grd_test_dataset], [False], num_tasks, global_rank)
+        else:
+            samplers = [None]
+
+        test_loader = create_loader([grd_test_dataset], samplers,
+                                    batch_size=[config['batch_size']],
+                                    num_workers=[4], is_trains=[False], collate_fns=[None])[0]
+
         num_patches = config['image_res'] // config['patch_size']
         result = val(model_without_ddp, test_loader, tokenizer, device, args.gradcam_mode, config['block_num'],
                      num_patches=num_patches)
         results = collect_tensor_result(result, 'grounding_eval', local_wdir=args.result_dir, hdfs_wdir=args.output_hdfs, write_to_hdfs=world_size > 8)
 
         if utils.is_main_process():
-            grounding_acc = grounding_eval(results, dets, cocos, refer, alpha=0.5, mask_size=num_patches)
+            if 'vlue_test' in config.keys() and config['vlue_test']:
+                grounding_acc = grounding_eval_vlue(results, config['test_file'][0], alpha=0.5, mask_size=num_patches)
+            else:
+                # refcoco evaluation tools
+                refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
+                dets = json.load(open(config['det_file'], 'r'))
+                cocos = json.load(open(config['coco_file'], 'r'))
+                grounding_acc = grounding_eval(results, dets, cocos, refer, alpha=0.5, mask_size=num_patches)
+
             log_stats = {**{f'{k}': v for k, v in grounding_acc.items()}}
             with open(os.path.join(args.output_dir, "log.txt"), "a") as f:
                 f.write(json.dumps(log_stats) + "\n")
@@ -211,6 +205,26 @@ def main(args, config):
     else:
         print("Start training")
         print("### block_num, ", config['block_num'])
+
+        datasets = [grd_train_dataset, grd_test_dataset]
+
+        train_dataset_size = len(grd_train_dataset)
+        train_batch_size = config['batch_size']
+
+        if utils.is_main_process():
+            print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
+
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler(datasets, [True, False], num_tasks, global_rank)
+        else:
+            samplers = [None, None]
+
+        train_loader, test_loader = create_loader(datasets, samplers,
+                                                  batch_size=[config['batch_size'], config['batch_size']],
+                                                  num_workers=[4, 4], is_trains=[True, False], collate_fns=[None, None])
+
         arg_opt = utils.AttrDict(config['optimizer'])
         optimizer = create_optimizer(arg_opt, model)
         arg_sche = utils.AttrDict(config['schedular'])
@@ -231,6 +245,9 @@ def main(args, config):
             results = collect_tensor_result(result, 'epoch%d' % epoch, local_wdir=args.result_dir, hdfs_wdir=args.output_hdfs, write_to_hdfs=world_size > 8)
 
             if utils.is_main_process():
+                refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
+                dets = json.load(open(config['det_file'], 'r'))
+                cocos = json.load(open(config['coco_file'], 'r'))
                 grounding_acc = grounding_eval(results, dets, cocos, refer, alpha=0.5, mask_size=num_patches)
                 log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                              **{f'{k}': v for k, v in grounding_acc.items()},

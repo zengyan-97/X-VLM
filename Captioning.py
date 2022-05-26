@@ -13,14 +13,9 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from models import load_pretrained
 from models.model_captioning import XVLM
 
-from models.tokenization_bert import BertTokenizer
-from models.tokenization_roberta import RobertaTokenizer
-
 import utils
-from utils import ScstRewardCriterion
 from utils.checkpointer import Checkpointer
 from utils.hdfs_io import hmkdir, hexists
 
@@ -32,7 +27,7 @@ from scheduler import create_scheduler
 from optim import create_optimizer
 
 
-def train(model, data_loader, optimizer, epoch, device, scheduler, scst_criterion, config):
+def train(model, data_loader, optimizer, epoch, device, scheduler, config):
     model.train()
     
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -156,16 +151,6 @@ def main(args, config):
         dist.barrier()
 
     else:
-        if args.scst:
-            print("Start SCST training", flush=True)
-            scst_criterion = ScstRewardCriterion(
-                cider_cached_tokens=config['cider_cached_tokens'],
-                baseline_type=config['sc_baseline_type'])
-
-        else:
-            print("Start training", flush=True)
-            scst_criterion = None
-
         arg_opt = utils.AttrDict(config['optimizer'])
         optimizer = create_optimizer(arg_opt, model)
         arg_sche = utils.AttrDict(config['schedular'])
@@ -194,7 +179,7 @@ def main(args, config):
             if args.distributed:
                 train_loader.sampler.set_epoch(epoch)
 
-            train_stats = train(model, train_loader, optimizer, epoch, device, lr_scheduler, scst_criterion, config)
+            train_stats = train(model, train_loader, optimizer, epoch, device, lr_scheduler, config)
 
             if utils.is_main_process():
 

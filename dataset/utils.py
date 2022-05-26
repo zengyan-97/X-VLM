@@ -210,6 +210,51 @@ def grounding_eval(results, dets, cocos, refer, alpha, mask_size=24):
     return eval_result
 
 
+def grounding_eval_vlue(results, test_json, alpha, mask_size=24):
+    correct_val_d = 0
+    num_val = 0
+
+    ref_id_map = {}
+    with open(test_json, 'r') as f:
+        for sample in json.load(f):
+            ref_id_map[sample['ref_id']] = sample
+
+    for res in tqdm(results):
+
+        ref_id = res['ref_id']
+
+        ref_box = ref_id_map[ref_id]['bbox']
+        height = ref_id_map[ref_id]['height']
+        width = ref_id_map[ref_id]['width']
+        dets = ref_id_map[ref_id]['dets']  # (x, y, w, h)
+
+        mask = res['pred'].cuda().view(1, 1, mask_size, mask_size)
+        mask = F.interpolate(mask, size=(height, width), mode='bicubic').squeeze()
+
+        # rank detection boxes
+        max_score = 0
+        for det in dets:
+            score = mask[int(det[1]):int(det[1] + det[3]), int(det[0]):int(det[0] + det[2])]
+            area = det[2] * det[3]
+            score = score.sum() / area ** alpha
+            if score > max_score:
+                pred_box = det[:4]
+                max_score = score
+
+        IoU_det = computeIoU(ref_box, pred_box)
+
+        num_val += 1
+        if IoU_det >= 0.5:
+            correct_val_d += 1
+
+    eval_result = {'score': correct_val_d / num_val}
+
+    for metric, acc in eval_result.items():
+        print(f'{metric}: {acc:.3f}')
+
+    return eval_result
+
+
 def grounding_eval_bbox(results, refer):
     correct_A_d, correct_B_d, correct_val_d = 0, 0, 0
     num_A, num_B, num_val = 0, 0, 0
@@ -243,6 +288,43 @@ def grounding_eval_bbox(results, refer):
                 correct_val_d += 1
 
     eval_result = {'val_d': correct_val_d / num_val, 'testA_d': correct_A_d / num_A, 'testB_d': correct_B_d / num_B}
+
+    for metric, acc in eval_result.items():
+        print(f'{metric}: {acc:.3f}')
+
+    return eval_result
+
+
+def grounding_eval_bbox_vlue(results, test_json):
+    correct_val_d = 0
+    num_val = 0
+
+    ref_id_map = {}
+    with open(test_json, 'r') as f:
+        for sample in json.load(f):
+            ref_id_map[sample['ref_id']] = sample
+
+    for res in tqdm(results):
+        ref_id = res['ref_id']
+
+        ref_box = ref_id_map[ref_id]['bbox']
+        height = ref_id_map[ref_id]['height']
+        width = ref_id_map[ref_id]['width']
+
+        coord = res['pred'].cuda()
+        coord[0::2] *= width
+        coord[1::2] *= height
+
+        coord[0] -= coord[2] / 2
+        coord[1] -= coord[3] / 2
+
+        IoU_det = computeIoU(ref_box, coord)
+
+        num_val += 1
+        if IoU_det >= 0.5:
+            correct_val_d += 1
+
+    eval_result = {'score': correct_val_d / num_val}
 
     for metric, acc in eval_result.items():
         print(f'{metric}: {acc:.3f}')

@@ -13,7 +13,6 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from models import load_pretrained
 from models.model_vqa import XVLM
 
 from models.tokenization_bert import BertTokenizer
@@ -89,6 +88,28 @@ def evaluation(model, data_loader, tokenizer, device, config) :
     return result
 
 
+def calculate_acc(result_rpath, test_dataset):
+    gt = {}
+    for ann in test_dataset.ann:
+        if 'answer' in ann.keys():
+            gt[ann['question_id']] = ann['answer'].strip()
+        else:
+            return
+
+    n = 0
+    n_correct = 0
+    with open(result_rpath, 'r') as f:
+        for sample in json.load(f):
+            n += 1
+            index = sample['question_id']
+            if sample['answer'].strip() == gt[index]:
+                n_correct += 1
+
+    print(f"n_questions: {n}, n_correct: {n_correct}", flush=True)
+    if n > 0:
+        print(f"acc: {n_correct / n}", flush=True)
+
+
 def main(args, config):
     utils.init_distributed_mode(args)    
     device = torch.device(args.device)
@@ -108,41 +129,20 @@ def main(args, config):
     cudnn.benchmark = True
     
     start_epoch = 0
-    max_epoch = config['schedular']['epochs']
 
     print("Creating vqa datasets")
-    train_dataset, vqa_test_dataset = create_dataset('vqa', config)
-    datasets = [train_dataset, vqa_test_dataset]
-
-    train_dataset_size = len(train_dataset)
-    world_size = utils.get_world_size()
-
-    if utils.is_main_process():
-        print(f"### data {train_dataset_size}, batch size, {config['batch_size_train']} x {world_size}")
-
-    if args.distributed:
-        num_tasks = utils.get_world_size()
-        global_rank = utils.get_rank()            
-        samplers = create_sampler(datasets, [True, False], num_tasks, global_rank)         
-    else:
-        samplers = [None, None]
-
-    train_loader, test_loader = create_loader(datasets, samplers,
-                                              batch_size=[config['batch_size_train'], config['batch_size_test']],
-                                              num_workers=[4, 4], is_trains=[True, False],
-                                              collate_fns=[vqa_collate_fn, None])
+    train_dataset, vqa_test_dataset = create_dataset('vqa', config, args.evaluate)
 
     print("Creating model")
-
     if config['use_roberta']:
         tokenizer = RobertaTokenizer.from_pretrained(config['text_encoder'])
     else:
         tokenizer = BertTokenizer.from_pretrained(config['text_encoder'])
 
-    print("### pad_token_id, ", train_dataset.pad_token_id)
-    print("### eos_token, ", train_dataset.eos_token)
-    config['pad_token_id'] = train_dataset.pad_token_id
-    config['eos'] = train_dataset.eos_token
+    print("### pad_token_id, ", vqa_test_dataset.pad_token_id)
+    print("### eos_token, ", vqa_test_dataset.eos_token)
+    config['pad_token_id'] = vqa_test_dataset.pad_token_id
+    config['eos'] = vqa_test_dataset.eos_token
     model = XVLM(config=config)
     model.load_pretrained(args.checkpoint, config, is_eval=args.evaluate)
     model = model.to(device)
@@ -154,15 +154,49 @@ def main(args, config):
 
     if args.evaluate:
         print("Start evaluating")
-        vqa_result = evaluation(model, test_loader, tokenizer, device, config)
-        result = collect_result(vqa_result, 'vqa_eval', local_wdir=args.result_dir,
-                                hdfs_wdir=args.output_hdfs,
-                                write_to_hdfs=world_size > 8, save_result=True)
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler([vqa_test_dataset], [False], num_tasks, global_rank)
+        else:
+            samplers = [None]
 
-        dist.barrier()
+        test_loader = create_loader([vqa_test_dataset], samplers,
+                                    batch_size=[config['batch_size_test']],
+                                    num_workers=[4], is_trains=[False],
+                                    collate_fns=[None])[0]
+
+        vqa_result = evaluation(model, test_loader, tokenizer, device, config)
+        result_rpath = collect_result(vqa_result, 'vqa_eval', local_wdir=args.result_dir,
+                                      hdfs_wdir=args.output_hdfs,
+                                      write_to_hdfs=world_size > 8, save_result=True)
+
+        # calculate accuracy
+        if utils.is_main_process():
+            calculate_acc(result_rpath, vqa_test_dataset)
 
     else:
         print("Start training")
+        datasets = [train_dataset, vqa_test_dataset]
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler(datasets, [True, False], num_tasks, global_rank)
+        else:
+            samplers = [None, None]
+
+        train_dataset_size = len(train_dataset)
+        world_size = utils.get_world_size()
+
+        if utils.is_main_process():
+            print(f"### data {train_dataset_size}, batch size, {config['batch_size_train']} x {world_size}")
+
+
+        train_loader, test_loader = create_loader(datasets, samplers,
+                                                  batch_size=[config['batch_size_train'], config['batch_size_test']],
+                                                  num_workers=[4, 4], is_trains=[True, False],
+                                                  collate_fns=[vqa_collate_fn, None])
+
         arg_opt = utils.AttrDict(config['optimizer'])
         optimizer = create_optimizer(arg_opt, model)
         arg_sche = utils.AttrDict(config['schedular'])
@@ -174,6 +208,7 @@ def main(args, config):
         if args.distributed:
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
 
+        max_epoch = config['schedular']['epochs']
         for epoch in range(start_epoch, max_epoch):
             if args.distributed:
                 train_loader.sampler.set_epoch(epoch)

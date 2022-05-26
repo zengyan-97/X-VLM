@@ -48,6 +48,10 @@ def get_dist_launch(args):  # some examples
         return "CUDA_VISIBLE_DEVICES=0,1,2,3 WORLD_SIZE=4 python3 -m torch.distributed.launch --nproc_per_node=4 " \
                "--nnodes=1 "
 
+    elif args.dist == 'l4':
+        return "CUDA_VISIBLE_DEVICES=4,5,6,7 WORLD_SIZE=4 python3 -m torch.distributed.launch --master_port=12345 --nproc_per_node=4 " \
+               "--nnodes=1 "
+
     elif args.dist.startswith('gpu'):  # use one gpu, --dist "gpu0"
         num = int(args.dist[3:])
         assert 0 <= num <= 8
@@ -103,10 +107,11 @@ def run_pretrain_nlvr(args):
 
     # run fine-tune
     if len(args.output_dir): args.output_dir += '_nlvr2'
-    run_nlvr2(load_nlvr_pretrain=True)
+    args.config = 'configs/NLVR.yaml'
+    run_nlvr2(args, load_nlvr_pretrain=True)
 
 
-def run_pretrain_refcoco_bbox():
+def run_pretrain_refcoco_bbox(args):
     print("### Start refcoco bbox domain pre-training", flush=True)
 
     dist_launch = get_dist_launch(args)
@@ -126,47 +131,29 @@ def run_pretrain_refcoco_bbox():
 
     # run fine-tune
     if len(args.output_dir): args.output_dir += '_refcoco'
-    run_refcoco(use_bbox=True, load_bbox_pretrain=True)
+    args.config = 'configs/Grounding_bbox.yaml'
+    run_refcoco(args, use_bbox=True, load_bbox_pretrain=True)
 
 
-def run_nlvr2(load_nlvr_pretrain=False):
+def run_nlvr2(args, load_nlvr_pretrain=False):
     dist_launch = get_dist_launch(args)
-
-    assert os.path.exists("images/nlvr2")
 
     print("### Training NLVR2", flush=True)
     os.system(f"{dist_launch} "
-              "--use_env NLVR.py --config configs/NLVR.yaml "
+              f"--use_env NLVR.py --config {args.config} "
               f"--output_dir {args.output_dir} --bs {args.bs} --checkpoint {args.checkpoint} {'--load_nlvr_pretrain' if load_nlvr_pretrain else ''} "
               f"{'--evaluate' if args.evaluate else ''}")
 
-
-def run_itr_flickr():
+def run_retrieval(args):
     dist_launch = get_dist_launch(args)
 
-    assert os.path.exists("images/flickr30k-images")
-
-    print("### Training Retrieval Flickr", flush=True)
     os.system(f"{dist_launch} "
-              "--use_env Retrieval.py --config configs/Retrieval_flickr.yaml "
-              f"--output_dir {args.output_dir} --bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
-
-
-def run_itr_coco():
-    dist_launch = get_dist_launch(args)
-
-    assert os.path.exists("images/coco")
-
-    print("### Training Retrieval COCO", flush=True)
-    os.system(f"{dist_launch} "
-              "--use_env Retrieval.py --config configs/Retrieval_coco.yaml "
+              f"--use_env Retrieval.py --config {args.config} "
               f"--output_dir {args.output_dir} --bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
 
 
 def run_vqa(args):
     dist_launch = get_dist_launch(args)
-
-    assert os.path.exists("images/coco") and os.path.exists("images/visualgenome")
 
     print("### Training VQA", flush=True)
     if not os.path.exists(args.config): args.config = './configs/VQA.yaml'
@@ -177,16 +164,13 @@ def run_vqa(args):
               f"--bs {args.bs} --checkpoint {args.checkpoint} {'--evaluate' if args.evaluate else ''}")
 
 
-def run_refcoco(use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-1):
+def run_refcoco(args, use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-1):
     dist_launch = get_dist_launch(args)
-
-    assert os.path.exists("images/coco")
 
     if use_bbox:
         print("### Training RefCOCO with bbox", flush=True)
-
         os.system(f"{dist_launch} "
-                  "--use_env Grounding_bbox.py --config configs/Grounding_bbox.yaml "
+                  f"--use_env Grounding_bbox.py --config {args.config} "
                   f"--output_dir {args.output_dir} {f'--output_hdfs {args.output_hdfs}' if len(args.output_hdfs) else ''} "
                   f"--bs {args.bs} {'--load_bbox_pretrain' if load_bbox_pretrain else ''} --checkpoint {args.checkpoint} "
                   f"{'--evaluate' if args.evaluate else ''}")
@@ -194,7 +178,7 @@ def run_refcoco(use_bbox=False, block_num=-1, load_bbox_pretrain=False, epochs=-
     else:
         print("### Training RefCOCO", flush=True)
         os.system(f"{dist_launch} "
-                  f"--use_env Grounding.py --config ./configs/Grounding.yaml "
+                  f"--use_env Grounding.py --config {args.config} "
                   f"--output_dir {args.output_dir} --bs {args.bs} {f'--output_hdfs {args.output_hdfs}' if len(args.output_hdfs) else ''} "
                   f"--gradcam_mode itm --block_num {block_num} --epochs {epochs} --checkpoint {args.checkpoint} "
                   f"{'--evaluate' if args.evaluate else ''}")
@@ -210,7 +194,7 @@ def run_pretrain_captioning(args):
         domain_ckpt = get_from_hdfs(args.load_ckpt_from)
 
     else:  # domain pre-train
-        if not os.path.exists(args.config): args.config = f'configs/{args.model}/Captioning_pretrain_O1.yaml'
+        if not os.path.exists(args.config): args.config = f'configs/Captioning_pretrain_O1.yaml'
 
         os.system(f"{dist_launch} --use_env Captioning_pretrain.py --seed {args.seed} --config {args.config} "
                   f"--output_dir {args.output_dir} --checkpoint {args.checkpoint}")
@@ -228,7 +212,7 @@ def run_coco_captioning(args, load_capt_pretrain=False, scst=False):
     print("### Training COCO Captioning", flush=True)
 
     if not os.path.exists(args.config):
-        args.config = f'./configs/{args.model}/Captioning.yaml'
+        args.config = f'./configs/Captioning.yaml'
 
     if scst:
         load_capt_pretrain = True  # same way to load ckpt;
@@ -248,60 +232,95 @@ def run(args):
         args.config = 'configs/Pretrain_XVLM_base_4m.yaml'
         run_pretrain(args)
 
-    elif args.task == 'itr_2_tasks':
-        run_itr_coco()
-        run_itr_flickr()
-
     elif args.task == 'itr_coco':
-        run_itr_coco()
+        assert os.path.exists("images/coco")
+        args.config = 'configs/Retrieval_coco.yaml'
+        run_retrieval(args)
 
     elif args.task == 'itr_flickr':
-        run_itr_flickr()
+        assert os.path.exists("images/flickr30k-images")
+        args.config = 'configs/Retrieval_flickr.yaml'
+        run_retrieval(args)
 
     elif args.task == 'vqa':
+        assert os.path.exists("images/coco") and os.path.exists("images/visualgenome")
         run_vqa(args)
 
     elif args.task == 'vqa_480':
-        # if use 480x480 (the accuracy will increase 0.5~1%):
+        assert os.path.exists("images/coco") and os.path.exists("images/visualgenome")
+        # if use 480x480 (the accuracy will increase 0.5%):
         args.config = "configs/VQA_480.yaml"
         run_vqa(args)
 
     elif args.task == 'nlvr':
+        assert os.path.exists("images/nlvr2")
         run_pretrain_nlvr(args)
-        # run_nlvr2()  # w/o domain pretrain
 
     elif args.task == 'refcoco_weakly':
-        run_refcoco(block_num=9)  # 9 for X-VLM base
+        assert os.path.exists("images/coco")
+        args.config = './configs/Grounding.yaml'
+        run_refcoco(args, block_num=9)  # 9 for X-VLM base
 
     elif args.task == 'refcoco_block_num_search':  # for refcoco_weakly
+        assert os.path.exists("images/coco")
         # block_num: use which layer of the cross-modal encoder for calculation
         # it is a critical hyper-param for refcoco without bbox annotations
         for num in [8, 9, 10, 7]:
             print(f"### block_num {num}")
-            run_refcoco(block_num=num, epochs=1)
+            args.config = './configs/Grounding.yaml'
+            run_refcoco(args, block_num=num, epochs=1)
 
     elif args.task == 'refcoco_bbox':
-        run_pretrain_refcoco_bbox()
-        # run_refcoco(use_bbox=True)  # w/o domain pretrain
+        assert os.path.exists("images/coco")
+        run_pretrain_refcoco_bbox(args)
 
     elif args.task.startswith('coco_capt_domain'):
-        if args.task == 'coco_capt_domain_14m':
-            args.config = f'configs/{args.model}/Captioning_pretrain_O1_14m.yaml'
-
         domain_ckpt = run_pretrain_captioning(args)
 
         # run fine-tune, reset args
         args.checkpoint = domain_ckpt
         if hexists(args.output_dir): args.output_dir = os.path.join(args.output_dir, 'coco_capt_ft')
-        args.config = f'./configs/{args.model}/Captioning.yaml'
+        args.config = f'./configs/Captioning.yaml'
         run_coco_captioning(args, load_capt_pretrain=True)
 
     elif args.task == 'coco_captioning':
         run_coco_captioning(args, load_capt_pretrain=True)
 
     elif args.task == 'coco_captioning_scst':  # load checkpoint of 'coco_captioning' results
-        args.config = f'./configs/{args.model}/Captioning_scst.yaml'
+        args.config = f'./configs/Captioning_scst.yaml'
         run_coco_captioning(args, scst=True)
+
+    elif args.task == 'eval_vlue_itr':
+        assert os.path.exists("images/marvl")
+
+        args.config = f"configs/vlue-base-test/Retrieval.yaml"
+        args.evaluate = True
+        run_retrieval(args)
+
+    elif args.task == 'eval_vlue_vqa':
+        assert os.path.exists("images/marvl")
+        # args.config = f"configs/vlue-base-test/VQA.yaml"
+        args.config = f"configs/vlue-base-test/VQA_480.yaml"
+        args.evaluate = True
+        run_vqa(args)
+
+    elif args.task == 'eval_vlue_nlvr':
+        assert os.path.exists("images/marvl")
+        args.evaluate = True
+        args.config = f"configs/vlue-base-test/NLVR.yaml"
+        run_nlvr2(args)
+
+    elif args.task == 'eval_vlue_refcoco':
+        assert os.path.exists("images/marvl")
+        args.evaluate = True
+        args.config = f"configs/vlue-base-test/Grounding_bbox.yaml"
+        run_refcoco(args, use_bbox=True)
+
+    elif args.task == 'eval_vlue_refcoco_weakly':
+        assert os.path.exists("images/marvl")
+        args.evaluate = True
+        args.config = f"configs/vlue-base-test/Grounding_weakly.yaml"
+        run_refcoco(args)
 
     else:
         raise NotImplementedError(f"task == {args.task}")
@@ -315,6 +334,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', default='', type=str, help="if not given, use default")
     parser.add_argument('--bs', default=-1, type=int, help="for each gpu, batch_size = bs // num_gpus; "
                                                            "this option only works for fine-tuning scripts.")
+    parser.add_argument('--seed', default=42, type=int)
 
     parser.add_argument('--checkpoint', default='', type=str, help="for fine-tuning")
     parser.add_argument('--load_ckpt_from', default='', type=str, help="load domain pre-trained params")

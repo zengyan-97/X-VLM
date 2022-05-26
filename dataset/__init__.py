@@ -15,7 +15,7 @@ from dataset.coco_karpathy_dataset import coco_karpathy_train, coco_karpathy_tra
 from dataset.randaugment import RandomAugment
 
 
-def create_dataset(dataset, config):
+def create_dataset(dataset, config, evaluate=False):
     normalize = transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711))
 
     pretrain_transform = transforms.Compose([
@@ -72,16 +72,23 @@ def create_dataset(dataset, config):
         return general_dataset, region_dataset
 
     elif dataset == 're':
+        test_dataset = re_eval_dataset(config['test_file'], test_transform, config['image_root'])
+        if evaluate:
+            return None, None, test_dataset
+
         train_dataset = re_train_dataset(config['train_file'], train_transform, config['image_root'])
         val_dataset = re_eval_dataset(config['val_file'], test_transform, config['image_root'])
-        test_dataset = re_eval_dataset(config['test_file'], test_transform, config['image_root'])
         return train_dataset, val_dataset, test_dataset
 
     elif dataset == 'vqa':
+        vqa_test_dataset = vqa_dataset(config['test_file'], test_transform, config['vqa_root'], config['vg_root'],
+                                       split='test', answer_list=config['answer_list'],
+                                       text_encoder=config['text_encoder'], use_roberta=config['use_roberta'])
+        if evaluate:
+            return None, vqa_test_dataset
+
         train_dataset = vqa_dataset(config['train_file'], train_transform_wohflip, config['vqa_root'], config['vg_root'],
                                     split='train', text_encoder=config['text_encoder'], use_roberta=config['use_roberta'])
-        vqa_test_dataset = vqa_dataset(config['test_file'], test_transform, config['vqa_root'], config['vg_root'],
-                                       split='test', answer_list=config['answer_list'], text_encoder=config['text_encoder'], use_roberta=config['use_roberta'])
         return train_dataset, vqa_test_dataset
 
     elif dataset == 'nlvr_pretrain':
@@ -92,12 +99,19 @@ def create_dataset(dataset, config):
         return general_dataset
 
     elif dataset == 'nlvr':
+        test_dataset = nlvr_dataset(config['test_file'], test_transform, config['image_root'])
+        if evaluate:
+            return None, None, test_dataset
+
         train_dataset = nlvr_dataset(config['train_file'], train_transform, config['image_root'])
         val_dataset = nlvr_dataset(config['val_file'], test_transform, config['image_root'])
-        test_dataset = nlvr_dataset(config['test_file'], test_transform, config['image_root'])
         return train_dataset, val_dataset, test_dataset
 
     elif dataset == 'grounding':
+        test_dataset = grounding_dataset(config['test_file'], test_transform, config['image_root'], mode='test')
+        if evaluate:
+            return None, test_dataset
+
         train_transform = transforms.Compose([
             transforms.Resize((config['image_res'], config['image_res']), interpolation=Image.BICUBIC),
             transforms.RandomHorizontalFlip(),
@@ -107,7 +121,6 @@ def create_dataset(dataset, config):
             normalize,
         ])
         train_dataset = grounding_dataset(config['train_file'], train_transform, config['image_root'], mode='train')
-        test_dataset = grounding_dataset(config['test_file'], test_transform, config['image_root'], mode='test')
         return train_dataset, test_dataset
 
     elif dataset == 'grounding_bbox_pretrain':
@@ -118,14 +131,16 @@ def create_dataset(dataset, config):
         return region_dataset
 
     elif dataset == 'grounding_bbox':
+        test_dataset = grounding_dataset_bbox(config['test_file'], test_transform, config['image_root'], mode='test', config=config)
+        if evaluate:
+            return None, test_dataset
+
         train_transform = transforms.Compose([
             RandomAugment(2, 7, isPIL=True, augs=['Identity', 'AutoContrast', 'Equalize', 'Brightness', 'Sharpness']),
             transforms.ToTensor(),
             normalize,
         ])
-
         train_dataset = grounding_dataset_bbox(config['train_file'], train_transform, config['image_root'], mode='train', config=config)
-        test_dataset = grounding_dataset_bbox(config['test_file'], test_transform, config['image_root'], mode='test', config=config)
         return train_dataset, test_dataset
 
     elif dataset == 'captioning_pretrain':
