@@ -1,0 +1,28 @@
+test_file: 'data/vlue_released/itr_vlue_test.json'
+image_root: 'images/marvl/'
+
+## Vision Encoder
+vision_config: 'configs/config_swinB_384.json'
+
+use_clip_vit: False
+#image_res: 384
+#patch_size: 16
+
+use_swin: True
+image_res: 384
+patch_size: 32
+
+
+## Text Encoder
+use_roberta: False
+text_config: 'configs/config_bert.json'  # ['configs/config_bert.json', 'configs/config_roberta.json']
+text_encoder: 'data/bert-base-uncased'  # ['data/bert-base-uncased', 'data/roberta-base']
+
+
+## Training
+batch_size_test: 64 # 1
+batch_size_test_text: 64 # 1
+max_tokens: 40
+embed_dim: 256
+temp: 0.07
+k_test: 256
