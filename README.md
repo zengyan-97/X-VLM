@@ -168,7 +168,7 @@ Some fine-tuning scripts are based on ALBEF, OSCAR, and BLIP. We thank the autho
 
 
 #### Evaluation on VLUE
-[VLUE](https://github.com/MichaelZhouwang/VLUE) is a new OOD benchmark to evaluate vision-language models, which has been accepted by ICML2022. 
+[VLUE](https://github.com/MichaelZhouwang/VLUE) is a new OOD benchmark to evaluate vision-language models, which has been accepted by ICML2022.   
 ```angular2html
 python3 run.py --task "eval_vlue_itr" --dist "1" --evaluate  --output_dir "output/" --checkpoint "itr_coco/checkpoint_9.pth"
 
