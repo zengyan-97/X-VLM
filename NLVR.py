@@ -17,7 +17,6 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from models import load_pretrained
 from models.model_nlvr import XVLM
 
 from models.tokenization_bert import BertTokenizer
@@ -105,28 +104,7 @@ def main(args, config):
     cudnn.benchmark = True
 
     print("Creating dataset")
-    train_dataset, val_dataset, test_dataset = create_dataset('nlvr', config)
-    datasets = [train_dataset, val_dataset, test_dataset]
-
-    train_dataset_size = len(train_dataset)
-    train_batch_size = config['batch_size']
-    world_size = utils.get_world_size()
-
-    if utils.is_main_process():
-        print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
-        print(f"### test data {len(test_dataset)}", flush=True)
-
-    if args.distributed:
-        num_tasks = utils.get_world_size()
-        global_rank = utils.get_rank()            
-        samplers = create_sampler(datasets, [True, False, False], num_tasks, global_rank)         
-    else:
-        samplers = [None, None, None]
-
-    train_loader, val_loader, test_loader = create_loader(datasets, samplers, batch_size=[config['batch_size']] * 3,
-                                                          num_workers=[4, 4, 4], is_trains=[True, False, False],
-                                                          collate_fns=[None, None, None])
-
+    train_dataset, val_dataset, test_dataset = create_dataset('nlvr', config, args.evaluate)
 
     print("Creating model")
     model = XVLM(config=config)
@@ -137,7 +115,7 @@ def main(args, config):
     model_without_ddp = model
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-        model_without_ddp = model.module    
+        model_without_ddp = model.module
 
     if config['use_roberta']:
         tokenizer = RobertaTokenizer.from_pretrained(config['text_encoder'])
@@ -149,19 +127,49 @@ def main(args, config):
 
     if args.evaluate:
         print("Start evaluating")
-        val_stats = evaluate(model, val_loader, tokenizer, device)
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler([test_dataset], [False], num_tasks, global_rank)
+        else:
+            samplers = [None]
+
+        test_loader = create_loader([test_dataset], samplers, batch_size=[config['batch_size']],
+                                    num_workers=[4], is_trains=[False],
+                                    collate_fns=[None])[0]
+
         test_stats = evaluate(model, test_loader, tokenizer, device)
 
         if utils.is_main_process():
-            log_stats = {**{f'val_{k}': v for k, v in val_stats.items()},
-                         **{f'test_{k}': v for k, v in test_stats.items()}}
-
+            log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}}
             print(log_stats)
 
         dist.barrier()
 
     else:
         print("Start training")
+
+        datasets = [train_dataset, val_dataset, test_dataset]
+
+        train_dataset_size = len(train_dataset)
+        train_batch_size = config['batch_size']
+        world_size = utils.get_world_size()
+
+        if utils.is_main_process():
+            print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
+            print(f"### test data {len(test_dataset)}", flush=True)
+
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler(datasets, [True, False, False], num_tasks, global_rank)
+        else:
+            samplers = [None, None, None]
+
+        train_loader, val_loader, test_loader = create_loader(datasets, samplers, batch_size=[config['batch_size']] * 3,
+                                                              num_workers=[4, 4, 4], is_trains=[True, False, False],
+                                                              collate_fns=[None, None, None])
+
         arg_opt = utils.AttrDict(config['optimizer'])
         optimizer = create_optimizer(arg_opt, model)
         arg_sche = utils.AttrDict(config['schedular'])

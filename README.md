@@ -3,12 +3,13 @@
 
 **[Multi-Grained Vision Language Pre-Training: Aligning Texts with Visual Concepts](https://arxiv.org/abs/2111.08276). Yan Zeng, Xinsong Zhang, Hang Li. arXiv 2021.**
 
+- May 2022: The paper has been accepted by ICML 2022 
 - Feb 2022: X-VLM also supports image captioning  
 - Jan 2022: release official PyTorch implementation and X-VLM checkpoints
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
 
 
-X-VLM (base, 240M parameters):
+X-VLM (base, 216M parameters):
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-coco-2014)](https://paperswithcode.com/sota/cross-modal-retrieval-on-coco-2014?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-flickr30k)](https://paperswithcode.com/sota/cross-modal-retrieval-on-flickr30k?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-grounding-on-refcoco-val)](https://paperswithcode.com/sota/visual-grounding-on-refcoco-val?p=multi-grained-vision-language-pre-training)
@@ -97,7 +98,15 @@ For distributed training across nodes, see run.py for more details.
 
 
 #### Data
-Please prepare your own datasets. Read the code dataset/pretrain_dataset.py to see what format is needed. 
+All datasets we utilized are public available. Please prepare the pre-training data by yourself. Read the code dataset/pretrain_dataset.py (more specifically ImageTextJsonDataset & RegionTextJsonDataset) to see what format is needed. 
+
+<div align="center">
+  <img width="50%" src="x-vlm-pretrain-data-1.png">
+</div>
+
+<div align="center">
+  <img width="50%" src="x-vlm-pretrain-data-2.png">
+</div>
 
 #### Checkpoints
 [X-VLM (4M)](https://drive.google.com/file/d/1B3gzyzuDN1DU0lvt2kDz2nTTwSKWqzV5/view?usp=sharing)  
@@ -139,7 +148,7 @@ python3 run.py --task "vqa" --dist "1" --evaluate --output_dir "output/vqa_eval"
 Specify "--task" to finetune on **image-text retrieval, nlvr2, visual grounding, or image captioning**. See run.py for details.
 
 
-More examples of captioning:
+#### More Examples of Captioning:
 ```angular2html
 # adapt cross-modal encoder + MLM head -> lm decoder; subsequent fine-tuning is included   
 python3 run.py --task "coco_capt_domain" --dist "1" --output_dir "output/coco_capt_domain" --checkpoint "4m_base_model_state_step_199999.th"
@@ -158,6 +167,19 @@ python3 run.py --task "coco_captioning" --dist "1" --output_dir "output/coco_cap
 Some fine-tuning scripts are based on ALBEF, OSCAR, and BLIP. We thank the authors for opening source their code.
 
 
+#### Evaluation on VLUE
+[VLUE](https://github.com/MichaelZhouwang/VLUE) is a new OOD benchmark to evaluate vision-language models, which has been accepted by ICML2022. 
+```angular2html
+python3 run.py --task "eval_vlue_itr" --dist "1" --evaluate  --output_dir "output/" --checkpoint "itr_coco/checkpoint_9.pth"
+
+python3 run.py --task "eval_vlue_vqa" --dist "1" --evaluate  --output_dir "output/" --checkpoint "vqa/model_state_epoch_9.th"
+
+python3 run.py --task "eval_vlue_nlvr" --dist "1" --evaluate  --output_dir "output/" --checkpoint "nlvr/nlvr_ft/checkpoint_best.pth"
+
+python3 run.py --task "eval_vlue_refcoco" --dist "1" --evaluate  --output_dir "output/" --checkpoint "refcoco_bbox/checkpoint_best.pth"
+
+python3 run.py --task "eval_vlue_refcoco_weakly" --dist "1" --evaluate  --output_dir "output/" --checkpoint "refcoco/checkpoint_best.pth"
+```
 
 
 ## Citation
@@ -173,4 +195,4 @@ If you find this repository useful, please considering giving ⭐ or citing:
 
 
 ### Contact
-For issues or help using this code, please submit a GitHub issue.
+For issues using this code, please submit a GitHub issue.

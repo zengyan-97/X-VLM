@@ -56,7 +56,6 @@ class grounding_dataset(Dataset):
 
 class grounding_dataset_bbox(Dataset):
     def __init__(self, ann_file, transform, image_root, max_words=30, mode='train', config=None):
-        self.refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
         self.image_res = config['image_res']
         self.careful_hflip = config['careful_hflip']
 
@@ -69,6 +68,7 @@ class grounding_dataset_bbox(Dataset):
         self.mode = mode
 
         if self.mode == 'train':
+            self.refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
             self.img_ids = {}
             n = 0
             for ann in self.ann:

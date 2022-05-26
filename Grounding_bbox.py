@@ -15,8 +15,7 @@ import torch.distributed as dist
 
 import utils
 from dataset import create_dataset, create_sampler, create_loader
-from dataset.utils import collect_tensor_result, grounding_eval_bbox
-from models import load_pretrained
+from dataset.utils import collect_tensor_result, grounding_eval_bbox, grounding_eval_bbox_vlue
 from models.model_bbox import XVLM
 from models.tokenization_bert import BertTokenizer
 from models.tokenization_roberta import RobertaTokenizer
@@ -102,28 +101,7 @@ def main(args, config):
     cudnn.benchmark = True
 
     print("Creating dataset")
-    grd_train_dataset, grd_test_dataset = create_dataset('grounding_bbox', config)
-    datasets = [grd_train_dataset, grd_test_dataset]
-
-    train_dataset_size = len(grd_train_dataset)
-    train_batch_size = config['batch_size']
-
-    if utils.is_main_process():
-        print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
-
-    if args.distributed:
-        num_tasks = utils.get_world_size()
-        global_rank = utils.get_rank()            
-        samplers = create_sampler(datasets, [True, False], num_tasks, global_rank)         
-    else:
-        samplers = [None, None]
-
-    train_loader, test_loader = create_loader(datasets, samplers,
-                                              batch_size=[config['batch_size'], config['batch_size']],
-                                              num_workers=[4, 4], is_trains=[True, False], collate_fns=[None, None])
-
-    # refcoco evaluation tools
-    refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
+    grd_train_dataset, grd_test_dataset = create_dataset('grounding_bbox', config, args.evaluate)
 
     print("Creating model")
     model = XVLM(config=config)
@@ -147,13 +125,31 @@ def main(args, config):
 
     if args.evaluate:
         print("Start evaluating")
+
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler([grd_test_dataset], [False], num_tasks, global_rank)
+        else:
+            samplers = [None]
+
+        test_loader = create_loader([grd_test_dataset], samplers,
+                                    batch_size=[config['batch_size']],
+                                    num_workers=[4], is_trains=[False], collate_fns=[None])[0]
+
         result = val(model_without_ddp, test_loader, tokenizer, device)
         results = collect_tensor_result(result, filename='grounding_bbox_eval', local_wdir=args.result_dir,
                                         hdfs_wdir=args.output_hdfs,
                                         write_to_hdfs=world_size > 8)
 
         if utils.is_main_process():
-            grounding_acc = grounding_eval_bbox(results, refer)
+            if 'vlue_test' in config.keys() and config['vlue_test']:
+                grounding_acc = grounding_eval_bbox_vlue(results, config['test_file'][0])
+            else:
+                # refcoco evaluation tools
+                refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
+                grounding_acc = grounding_eval_bbox(results, refer)
+
             log_stats = {**{f'{k}': v for k, v in grounding_acc.items()}}
             print(log_stats)
 
@@ -161,6 +157,26 @@ def main(args, config):
 
     else:
         print("Start training")
+
+        datasets = [grd_train_dataset, grd_test_dataset]
+
+        train_dataset_size = len(grd_train_dataset)
+        train_batch_size = config['batch_size']
+
+        if utils.is_main_process():
+            print(f"### data {train_dataset_size}, batch size, {train_batch_size} x {world_size}")
+
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler(datasets, [True, False], num_tasks, global_rank)
+        else:
+            samplers = [None, None]
+
+        train_loader, test_loader = create_loader(datasets, samplers,
+                                                  batch_size=[config['batch_size'], config['batch_size']],
+                                                  num_workers=[4, 4], is_trains=[True, False], collate_fns=[None, None])
+
         arg_opt = utils.AttrDict(config['optimizer'])
         optimizer = create_optimizer(arg_opt, model)
         arg_sche = utils.AttrDict(config['schedular'])
@@ -180,6 +196,8 @@ def main(args, config):
                                      write_to_hdfs=world_size > 8)
 
             if utils.is_main_process():
+                # refcoco evaluation tools
+                refer = REFER(config['refcoco_data'], 'refcoco+', 'unc')
                 grounding_acc = grounding_eval_bbox(results, refer)
                 log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                              **{f'{k}': v for k, v in grounding_acc.items()},

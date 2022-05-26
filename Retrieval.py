@@ -16,7 +16,6 @@ import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from models import load_pretrained
 from models.model_retrieval import XVLM
 
 from models.tokenization_bert import BertTokenizer
@@ -226,28 +225,6 @@ def main(args, config):
     random.seed(seed)
     cudnn.benchmark = True
 
-    print("Creating retrieval dataset", flush=True)
-    train_dataset, val_dataset, test_dataset = create_dataset('re', config)
-
-    train_dataset_size = len(train_dataset)
-
-    if utils.is_main_process():
-        print(f"### data {train_dataset_size}, batch size, {config['batch_size_train']} x {world_size}")
-
-    if args.distributed:
-        num_tasks = utils.get_world_size()
-        global_rank = utils.get_rank()            
-        samplers = create_sampler([train_dataset], [True], num_tasks, global_rank) + [None, None]
-    else:
-        samplers = [None, None, None]
-
-    train_loader, val_loader, test_loader = create_loader([train_dataset, val_dataset, test_dataset], samplers,
-                                                          batch_size=[config['batch_size_train']] + [config['batch_size_test']] * 2,
-                                                          num_workers=[4, 4, 4],
-                                                          is_trains=[True, False, False],
-                                                          collate_fns=[None, None, None])
-
-
     print("Creating model", flush=True)
     model = XVLM(config=config)
     model.load_pretrained(args.checkpoint, config, is_eval=args.evaluate)
@@ -264,30 +241,53 @@ def main(args, config):
     else:
         tokenizer = BertTokenizer.from_pretrained(config['text_encoder'])
 
+    print("Creating retrieval dataset", flush=True)
+    train_dataset, val_dataset, test_dataset = create_dataset('re', config, args.evaluate)
+
     start_time = time.time()
     print("### output_dir, ", args.output_dir, flush=True)
 
     if args.evaluate:
         print("Start evaluating", flush=True)
+        test_loader = create_loader([test_dataset], [None],
+                                    batch_size=[config['batch_size_test']],
+                                    num_workers=[4],
+                                    is_trains=[False],
+                                    collate_fns=[None])[0]
 
-        score_val_i2t, score_val_t2i, = evaluation(model_without_ddp, val_loader, tokenizer, device, config)
+        # score_val_i2t, score_val_t2i, = evaluation(model_without_ddp, val_loader, tokenizer, device, config)
         score_test_i2t, score_test_t2i = evaluation(model_without_ddp, test_loader, tokenizer, device, config)
 
         if utils.is_main_process():
-            val_result = itm_eval(score_val_i2t, score_val_t2i, val_loader.dataset.txt2img, val_loader.dataset.img2txt)
-            print(val_result)
+            # val_result = itm_eval(score_val_i2t, score_val_t2i, val_loader.dataset.txt2img, val_loader.dataset.img2txt)
+            # print(val_result)
             test_result = itm_eval(score_test_i2t, score_test_t2i, test_loader.dataset.txt2img, test_loader.dataset.img2txt)
             print(test_result)
-
-            log_stats = {**{f'val_{k}': v for k, v in val_result.items()},
-                         **{f'test_{k}': v for k, v in test_result.items()}}
-
-            print(log_stats)
 
         dist.barrier()
 
     else:
         print("Start training", flush=True)
+
+        train_dataset_size = len(train_dataset)
+
+        if utils.is_main_process():
+            print(f"### data {train_dataset_size}, batch size, {config['batch_size_train']} x {world_size}")
+
+        if args.distributed:
+            num_tasks = utils.get_world_size()
+            global_rank = utils.get_rank()
+            samplers = create_sampler([train_dataset], [True], num_tasks, global_rank) + [None, None]
+        else:
+            samplers = [None, None, None]
+
+        train_loader, val_loader, test_loader = create_loader([train_dataset, val_dataset, test_dataset], samplers,
+                                                              batch_size=[config['batch_size_train']] + [
+                                                                  config['batch_size_test']] * 2,
+                                                              num_workers=[4, 4, 4],
+                                                              is_trains=[True, False, False],
+                                                              collate_fns=[None, None, None])
+
         arg_opt = utils.AttrDict(config['optimizer'])
         optimizer = create_optimizer(arg_opt, model)
         arg_sche = utils.AttrDict(config['schedular'])
