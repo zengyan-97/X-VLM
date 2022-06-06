@@ -4,12 +4,11 @@
 **[Multi-Grained Vision Language Pre-Training: Aligning Texts with Visual Concepts](https://arxiv.org/abs/2111.08276). Yan Zeng, Xinsong Zhang, Hang Li. arXiv 2021.**
 
 - May 2022: The paper has been accepted by ICML 2022 
-- Feb 2022: X-VLM also supports image captioning  
 - Jan 2022: release official PyTorch implementation and X-VLM checkpoints
 - Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
 
 
-X-VLM (base, 216M parameters):
+X-VLM (216M parameters: swin-base + 6L text + 6L cross):
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-coco-2014)](https://paperswithcode.com/sota/cross-modal-retrieval-on-coco-2014?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/cross-modal-retrieval-on-flickr30k)](https://paperswithcode.com/sota/cross-modal-retrieval-on-flickr30k?p=multi-grained-vision-language-pre-training)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/multi-grained-vision-language-pre-training/visual-grounding-on-refcoco-val)](https://paperswithcode.com/sota/visual-grounding-on-refcoco-val?p=multi-grained-vision-language-pre-training)
@@ -94,8 +93,7 @@ X-VLM/
 ```angular2html
 python3 run.py --task "pretrain_4m_base" --dist "1" --output_dir "output/pretrain_4m_base"
 ```
-For distributed training across nodes, see run.py for more details.
-
+For distributed training across nodes, see run.py for more details. We pre-trained X-VLM (4M/16M) for 200K steps. 
 
 #### Data
 All datasets we utilized are public available. Please prepare the pre-training data by yourself. Read the code dataset/pretrain_dataset.py (more specifically ImageTextJsonDataset & RegionTextJsonDataset) to see what format is needed. 
