@@ -4,8 +4,8 @@
 **[Multi-Grained Vision Language Pre-Training: Aligning Texts with Visual Concepts](https://arxiv.org/abs/2111.08276). Yan Zeng, Xinsong Zhang, Hang Li. arXiv 2021.**
 
 - May 2022: The paper has been accepted by ICML 2022 
-- Jan 2022: release official PyTorch implementation and X-VLM checkpoints
-- Nov 2021: release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
+- Jan 2022: Release official PyTorch implementation and X-VLM checkpoints
+- Nov 2021: Release preprint in [arXiv](https://arxiv.org/abs/2111.08276)
 
 
 X-VLM (216M parameters: swin-base + 6L text + 6L cross):
