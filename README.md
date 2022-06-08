@@ -93,10 +93,9 @@ X-VLM/
 ```angular2html
 python3 run.py --task "pretrain_4m_base" --dist "1" --output_dir "output/pretrain_4m_base"
 ```
-For distributed training across nodes, see run.py for more details. We pre-trained X-VLM (4M/16M) for 200K steps. 
+For distributed training across nodes, see run.py for more details. To make a fair comparison of some recent works, we pre-trained X-VLM (4M/16M) for 200K steps. 
 
 #### Data
-All datasets we utilized are public available. Please prepare the pre-training data by yourself. Read the code dataset/pretrain_dataset.py (more specifically ImageTextJsonDataset & RegionTextJsonDataset) to see what format is needed. 
 
 <div align="center">
   <img width="50%" src="x-vlm-pretrain-data-1.png">
@@ -106,9 +105,37 @@ All datasets we utilized are public available. Please prepare the pre-training d
   <img width="50%" src="x-vlm-pretrain-data-2.png">
 </div>
 
+All datasets we utilized are publicly available. 
+We cannot re-distribute the data. So, please prepare the pre-training data by yourself.   
+Here, we provide some data examples. Read the code dataset/pretrain_dataset.py/ImageTextJsonDataset & RegionTextJsonDataset for details.  
+```
+# image-captions pairs, providing 'binary' or 'image_rpath' 
+{'caption': 'dog on bike in harajuku', 
+ 'binary': binary_encoding_of_the_image, 
+ 'image_rpath': local_rpath_of_the_image
+}
+
+
+# object/region annotations, providing 'binary' or 'image_rpath' 
+{'elems': [{'caption': 'lady sitting at table that has pizza on it',  # str or list of str  
+            'bb': [155, 0, 205, 131]   # (x, y, w, h)
+            }, 
+           {'caption': 'window',  
+            'attributes': 'closed',  # str or list of str 
+            'bb': [20, 130, 335, 185]
+            },
+          ]
+ 'caption': if_exist,  # str or list of str 
+ 'binary': binary_encoding_of_the_image, 
+ 'image_rpath': local_rpath_of_the_image
+}
+```
+
+
+
 #### Checkpoints
-[X-VLM (4M)](https://drive.google.com/file/d/1B3gzyzuDN1DU0lvt2kDz2nTTwSKWqzV5/view?usp=sharing)  
-[X-VLM (16M)](https://drive.google.com/file/d/1VolF9P9cPSuD8CZMjwbKW20wUrAIaEFK/view?usp=sharing)
+[X-VLM (4M, 200K steps)](https://drive.google.com/file/d/1B3gzyzuDN1DU0lvt2kDz2nTTwSKWqzV5/view?usp=sharing)  
+[X-VLM (16M, 200K steps)](https://drive.google.com/file/d/1VolF9P9cPSuD8CZMjwbKW20wUrAIaEFK/view?usp=sharing)
 
 
 ## Finetune
@@ -162,7 +189,7 @@ python3 run.py --task "coco_captioning_scst" --dist "1" --output_dir "output/coc
 python3 run.py --task "coco_captioning" --dist "1" --output_dir "output/coco_captioning_scst" --evaluate --checkpoint "4m_base_finetune/coco_caption/coco_capt_cider_step_41000.th"
 ```
 
-Some fine-tuning scripts are based on ALBEF, OSCAR, and BLIP. We thank the authors for opening source their code.
+To make a fair comparison, we follow the previous works for fine-tuning. So, some scripts are based on ALBEF, OSCAR, and BLIP. We thank the authors for opening source their code.
 
 
 #### Evaluation on VLUE
