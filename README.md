@@ -105,9 +105,7 @@ For distributed training across nodes, see run.py for more details. To make a fa
   <img width="50%" src="x-vlm-pretrain-data-2.png">
 </div>
 
-All datasets we utilized are publicly available. 
-We cannot re-distribute the data. So, please prepare the pre-training data by yourself.   
-Here, we provide some data examples. Read the code dataset/pretrain_dataset.py/ImageTextJsonDataset & RegionTextJsonDataset for details.  
+All datasets we utilized are publicly available. We cannot re-distribute the data. So, please prepare the pre-training data by yourself. Here, we provide some data examples. Read the code dataset/pretrain_dataset.py/ImageTextJsonDataset & RegionTextJsonDataset for details.  
 ```
 # image-captions pairs, providing 'binary' or 'image_rpath' 
 {'caption': 'dog on bike in harajuku', 
@@ -135,7 +133,7 @@ Here, we provide some data examples. Read the code dataset/pretrain_dataset.py/I
 
 #### Checkpoints
 [X-VLM (4M, 200K steps)](https://drive.google.com/file/d/1B3gzyzuDN1DU0lvt2kDz2nTTwSKWqzV5/view?usp=sharing)  
-[X-VLM (16M, 200K steps)](https://drive.google.com/file/d/1VolF9P9cPSuD8CZMjwbKW20wUrAIaEFK/view?usp=sharing)
+[X-VLM (16M, 200K steps)](https://drive.google.com/file/d/1iXgITaSbQ1oGPPvGaV0Hlae4QiJG5gx0/view?usp=sharing)
 
 
 ## Finetune
