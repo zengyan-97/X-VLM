@@ -105,6 +105,10 @@ For distributed training across nodes, see run.py for more details. To make a fa
   <img width="50%" src="x-vlm-pretrain-data-2.png">
 </div>
 
+***
+🌟UPDATE: our multi-lingual multi-modal project [Cross-View Language Modeling](https://github.com/zengyan-97/CCLM) released the text of [COCO+VG+SBU+CC3M](https://github.com/zengyan-97/CCLM) and  [Object And Region Annotations](https://github.com/zengyan-97/CCLM) in six languages. You can use english text for X-VLM pre-training. 
+***
+
 All datasets we utilized are publicly available. We cannot re-distribute the data. So, please prepare the pre-training data by yourself. Here, we provide some data examples. Read the code dataset/pretrain_dataset.py/ImageTextJsonDataset & RegionTextJsonDataset for details.  
 ```
 # image-captions pairs, providing 'binary' or 'image_rpath' 
